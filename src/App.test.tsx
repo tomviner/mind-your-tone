@@ -78,6 +78,15 @@ describe("live challenge play", () => {
     expect(link).toHaveAttribute("rel", "noreferrer");
   });
 
+  test("links the header to the alternate game", () => {
+    render(<App initialSeed={SEED} />);
+
+    const link = within(screen.getByRole("banner")).getByRole("link", {
+      name: "let the machine play",
+    });
+    expect(link).toHaveAttribute("href", "https://tone-jev.tomv.uk/");
+  });
+
   test("scores automatically after typing pauses and keeps a missed level", async () => {
     vi.useFakeTimers();
     const round = createChallenge(SEED)[0];

@@ -435,6 +435,12 @@ export default function App({ initialSeed }: AppProps) {
         <a className="wordmark" href="/" aria-label="mind your tone home">
           mind your tone<span aria-hidden="true">!</span>
         </a>
+        <a
+          className="text-button sibling-link"
+          href="https://tone-jev.tomv.uk/"
+        >
+          let the machine play <span aria-hidden="true">↗</span>
+        </a>
         <nav aria-label="Game mode" className="mode-switch">
           <button
             type="button"

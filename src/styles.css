@@ -72,7 +72,13 @@ a:focus-visible {
 }
 
 .site-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   margin-bottom: 20px;
+}
+
+.sibling-link {
+  justify-self: end;
 }
 
 .wordmark {
@@ -722,7 +728,18 @@ textarea::placeholder {
   }
 
   .site-header {
-    align-items: center;
+    grid-template-columns: 1fr auto;
+    align-items: start;
+  }
+
+  .sibling-link {
+    max-width: 110px;
+    text-align: right;
+  }
+
+  .site-header .mode-switch {
+    grid-column: 1 / -1;
+    justify-self: end;
   }
 
   .game-meta,
