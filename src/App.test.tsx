@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import App from "./App";
-import { createChallenge, type GameRound } from "./game";
+import { createChallenge, createPracticeRound, type GameRound } from "./game";
 
 const SEED = "friendly-test-seed";
 
@@ -33,6 +33,10 @@ const finishDebounce = async () => {
     await Promise.resolve();
     await Promise.resolve();
   });
+};
+
+const finishFlourish = () => {
+  act(() => vi.advanceTimersByTime(900));
 };
 
 afterEach(() => {
@@ -82,10 +86,108 @@ describe("live challenge play", () => {
 
     typePhrase();
     await finishDebounce();
+    finishFlourish();
 
     expect(screen.getByText("level 2 / 10")).toBeInTheDocument();
     expect(screen.getByText("30 total")).toBeInTheDocument();
-    expect(screen.getByText("Nailed it. New target.")).toBeInTheDocument();
+    expect(screen.getByText("New target.")).toBeInTheDocument();
+  });
+
+  test("holds the winning score on screen for a success flourish before advancing", async () => {
+    vi.useFakeTimers();
+    const round = createChallenge(SEED)[0];
+    const winningScore =
+      (round.dimensions[0].target.min + round.dimensions[0].target.max) / 2;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json(scoreBody(round, true))),
+    );
+    render(<App initialSeed={SEED} />);
+
+    typePhrase();
+    await finishDebounce();
+
+    expect(screen.getByText("level 1 / 10")).toBeInTheDocument();
+    expect(screen.getByText(winningScore.toFixed(1))).toBeInTheDocument();
+    expect(screen.getByText("Nailed it.")).toBeInTheDocument();
+    expect(screen.getByRole("meter")).toHaveAttribute(
+      "aria-valuetext",
+      expect.stringContaining("Inside target"),
+    );
+
+    act(() => vi.advanceTimersByTime(899));
+    expect(screen.getByText("level 1 / 10")).toBeInTheDocument();
+    expect(screen.getByText(winningScore.toFixed(1))).toBeInTheDocument();
+    expect(screen.getByText("Nailed it.")).toBeInTheDocument();
+    expect(screen.getByText("30 points left")).toBeInTheDocument();
+    expect(screen.getByLabelText("Your phrase")).toHaveAttribute("readonly");
+    expect(
+      screen.getByRole("button", { name: `share seed ${SEED}` }),
+    ).toBeDisabled();
+
+    act(() => vi.advanceTimersByTime(1));
+    expect(screen.getByText("level 2 / 10")).toBeInTheDocument();
+  });
+
+  test("freezes the winning view and controls during a practice flourish", async () => {
+    vi.useFakeTimers();
+    fireEvent.click(
+      render(<App initialSeed={SEED} />).getByRole("button", {
+        name: "practice",
+      }),
+    );
+    const practiceRound = createPracticeRound(`${SEED}:0`, "urgency");
+    const fetchMock = vi.fn(async () =>
+      Response.json(scoreBody(practiceRound, true)),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const picker = screen.getByLabelText("Pick a dimension");
+    typePhrase();
+    await finishDebounce();
+
+    expect(picker).toBeDisabled();
+    expect(screen.getByText("Nailed it.")).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(899));
+    expect(screen.getByText("Nailed it.")).toBeInTheDocument();
+    expect(screen.getByRole("meter")).toHaveAttribute(
+      "aria-valuetext",
+      expect.stringContaining("Inside target"),
+    );
+
+    act(() => vi.advanceTimersByTime(1));
+    expect(picker).not.toBeDisabled();
+    expect(screen.getByText("Fresh target.")).toBeInTheDocument();
+  });
+
+  test("shows the final winning score before revealing the completed run", async () => {
+    vi.useFakeTimers();
+    const challenge = createChallenge(SEED);
+    let roundIndex = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json(scoreBody(challenge[roundIndex++], true)),
+      ),
+    );
+    render(<App initialSeed={SEED} />);
+
+    for (let index = 0; index < challenge.length; index += 1) {
+      typePhrase(`Winning phrase ${index + 1}`);
+      await finishDebounce();
+      expect(screen.getByText(`level ${index + 1} / 10`)).toBeInTheDocument();
+      expect(screen.getByText("Nailed it.")).toBeInTheDocument();
+
+      if (index < challenge.length - 1) finishFlourish();
+    }
+
+    act(() => vi.advanceTimersByTime(899));
+    expect(screen.getByText("level 10 / 10")).toBeInTheDocument();
+    expect(screen.getByText("Nailed it.")).toBeInTheDocument();
+
+    act(() => vi.advanceTimersByTime(1));
+    expect(screen.getByText("run complete")).toBeInTheDocument();
+    expect(screen.getByText("300 points")).toBeInTheDocument();
   });
 
   test("cancels a pending evaluation when the phrase changes again", async () => {
@@ -153,6 +255,7 @@ describe("live challenge play", () => {
     expect(screen.getByText("0 points left")).toBeInTheDocument();
     typePhrase();
     await finishDebounce();
+    finishFlourish();
 
     expect(screen.getByText("level 2 / 10")).toBeInTheDocument();
     expect(screen.getByText("0 total")).toBeInTheDocument();

@@ -18,6 +18,8 @@ interface AppProps {
   initialSeed?: string;
 }
 
+const SUCCESS_HOLD_MS = 900;
+
 const seedFromLocation = (): string => {
   const supplied = new URLSearchParams(window.location.search).get("seed");
   return supplied?.trim() || crypto.randomUUID().slice(0, 8);
@@ -43,8 +45,10 @@ export default function App({ initialSeed }: AppProps) {
   const [highScore, setHighScore] = useState(savedHighScore);
   const [status, setStatus] = useState("Type to score. Hit every target.");
   const [loading, setLoading] = useState(false);
+  const [celebrating, setCelebrating] = useState(false);
   const [complete, setComplete] = useState(false);
   const pointsLeftRef = useRef(pointsLeft);
+  const successPointsRef = useRef(pointsLeft);
   const totalRef = useRef(total);
   const highScoreRef = useRef(highScore);
 
@@ -60,15 +64,17 @@ export default function App({ initialSeed }: AppProps) {
   const round = mode === "challenge" ? challenge[levelIndex] : practiceRound;
 
   useEffect(() => {
-    if (mode !== "challenge" || complete) return undefined;
+    if (mode !== "challenge" || complete || celebrating) return undefined;
     const timer = window.setInterval(() => {
       setPointsLeft((current) => Math.max(0, current - 1));
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [complete, levelIndex, mode]);
+  }, [celebrating, complete, levelIndex, mode]);
 
   useEffect(() => {
-    if (complete || !phrase.trim() || phrase.length > 120) return undefined;
+    if (celebrating || complete || !phrase.trim() || phrase.length > 120) {
+      return undefined;
+    }
 
     const controller = new AbortController();
     setLoading(false);
@@ -106,41 +112,10 @@ export default function App({ initialSeed }: AppProps) {
           return;
         }
 
-        if (mode === "practice") {
-          setPracticeSerial((current) => current + 1);
-          setPhrase("");
-          setScores({});
-          setLoading(false);
-          setStatus("Nailed it. Fresh target.");
-          return;
-        }
-
-        const nextTotal =
-          totalRef.current + pointsForSuccess(pointsLeftRef.current);
-        totalRef.current = nextTotal;
-        setTotal(nextTotal);
-        if (levelIndex === challenge.length - 1) {
-          setComplete(true);
-          setLoading(false);
-          setStatus("Tone mastered.");
-          if (nextTotal > highScoreRef.current) {
-            highScoreRef.current = nextTotal;
-            setHighScore(nextTotal);
-            window.localStorage.setItem(
-              "mind-your-tone-high-score",
-              String(nextTotal),
-            );
-          }
-          return;
-        }
-
-        setLevelIndex((current) => current + 1);
-        setPointsLeft(30);
-        pointsLeftRef.current = 30;
-        setPhrase("");
-        setScores({});
+        successPointsRef.current = pointsLeftRef.current;
+        setCelebrating(true);
         setLoading(false);
-        setStatus("Nailed it. New target.");
+        setStatus("Nailed it.");
       } catch {
         if (controller.signal.aborted) return;
         setStatus("Jev blinked. Keep typing.");
@@ -152,15 +127,61 @@ export default function App({ initialSeed }: AppProps) {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [challenge.length, complete, levelIndex, mode, phrase, round]);
+  }, [celebrating, complete, phrase, round]);
+
+  useEffect(() => {
+    if (!celebrating) return undefined;
+
+    const timer = window.setTimeout(() => {
+      if (mode === "practice") {
+        setPracticeSerial((current) => current + 1);
+        setPhrase("");
+        setScores({});
+        setCelebrating(false);
+        setStatus("Fresh target.");
+        return;
+      }
+
+      const nextTotal =
+        totalRef.current + pointsForSuccess(successPointsRef.current);
+      totalRef.current = nextTotal;
+      setTotal(nextTotal);
+      if (levelIndex === challenge.length - 1) {
+        setComplete(true);
+        setCelebrating(false);
+        setStatus("Tone mastered.");
+        if (nextTotal > highScoreRef.current) {
+          highScoreRef.current = nextTotal;
+          setHighScore(nextTotal);
+          window.localStorage.setItem(
+            "mind-your-tone-high-score",
+            String(nextTotal),
+          );
+        }
+        return;
+      }
+
+      setLevelIndex((current) => current + 1);
+      setPointsLeft(30);
+      pointsLeftRef.current = 30;
+      setPhrase("");
+      setScores({});
+      setCelebrating(false);
+      setStatus("New target.");
+    }, SUCCESS_HOLD_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [celebrating, challenge.length, levelIndex, mode]);
 
   const resetRoundView = () => {
     setPhrase("");
     setScores({});
     setLoading(false);
+    setCelebrating(false);
   };
 
   const updatePhrase = (nextPhrase: string) => {
+    if (celebrating) return;
     setPhrase(nextPhrase);
     if (!nextPhrase.trim()) {
       setScores({});
@@ -252,7 +273,9 @@ export default function App({ initialSeed }: AppProps) {
             Pick a dimension
             <select
               value={practiceKey}
+              disabled={celebrating}
               onChange={(event) => {
+                if (celebrating) return;
                 setPracticeKey(event.target.value as DimensionKey);
                 setPracticeSerial((current) => current + 1);
                 setScores({});
@@ -297,7 +320,10 @@ export default function App({ initialSeed }: AppProps) {
               <h1 id="game-heading">Write a line. Hit every target.</h1>
             </div>
 
-            <div className="meters" aria-label="Tone targets">
+            <div
+              className={`meters${celebrating ? " is-celebrating" : ""}`}
+              aria-label="Tone targets"
+            >
               {round.dimensions.map(({ key, target }) => (
                 <ScoreMeter
                   key={key}
@@ -319,6 +345,7 @@ export default function App({ initialSeed }: AppProps) {
                 maxLength={120}
                 rows={3}
                 autoFocus
+                readOnly={celebrating}
                 placeholder="Try: Could you send that over today?"
                 onChange={(event) => updatePhrase(event.target.value)}
               />
@@ -330,7 +357,7 @@ export default function App({ initialSeed }: AppProps) {
                   {status}
                 </p>
                 <span className={`live-badge${loading ? " is-scoring" : ""}`}>
-                  {loading ? "scoring…" : "live"}
+                  {loading ? "scoring…" : celebrating ? "hit!" : "live"}
                 </span>
               </div>
             </div>
@@ -341,7 +368,12 @@ export default function App({ initialSeed }: AppProps) {
       <footer className="site-footer">
         <span>scored only by TypeSafe Jev</span>
         {mode === "challenge" && !complete && (
-          <button type="button" className="text-button" onClick={copyChallenge}>
+          <button
+            type="button"
+            className="text-button"
+            disabled={celebrating}
+            onClick={copyChallenge}
+          >
             share seed {seed}
           </button>
         )}
