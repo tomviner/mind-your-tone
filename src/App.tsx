@@ -607,7 +607,7 @@ export default function App({ initialSeed }: AppProps) {
             target="_blank"
             rel="noreferrer"
           >
-            GitHub repo
+            source
           </a>
           {mode === "challenge" && !complete && (
             <a className="text-button" href={shareUrl}>

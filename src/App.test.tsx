@@ -69,7 +69,7 @@ describe("live challenge play", () => {
   test("links the footer to the public source repository", () => {
     render(<App initialSeed={SEED} />);
 
-    const link = screen.getByRole("link", { name: "GitHub repo" });
+    const link = screen.getByRole("link", { name: "source" });
     expect(link).toHaveAttribute(
       "href",
       "https://github.com/tomviner/mind-your-tone",
