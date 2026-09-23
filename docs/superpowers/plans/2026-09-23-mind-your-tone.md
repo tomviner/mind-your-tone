@@ -52,7 +52,7 @@ Python scoring boundary lives in `worker/`, its tests live in `tests/`, and
 
 - [ ] Write failing tests asserting deterministic seeds, the exact width and dimension-count sequences, unique dimensions, in-bounds targets, and `pointsForSuccess(-1) === 0`.
 - [ ] Run `npm test -- src/game.test.ts` and confirm failure because the modules do not exist.
-- [ ] Implement the nine fixed rubrics, seeded PRNG, target construction, and point flooring with no UI dependencies.
+- [ ] Implement the twenty fixed rubrics, seeded PRNG, target construction, and point flooring with no UI dependencies.
 - [ ] Run `npm test -- src/game.test.ts` and confirm every model test passes.
 - [ ] Commit the independently working game model.
 

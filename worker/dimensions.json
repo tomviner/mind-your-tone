@@ -100,7 +100,163 @@
       "A slight playful hint",
       "Moderately playful or humorous",
       "Clearly lively and playful",
-      "Extremely playful, comic, or whimsical"
+      "Extremely playful, comic, or mischievous"
+    ]
+  },
+  "directness": {
+    "name": "Directness",
+    "low": "Indirect",
+    "high": "Direct",
+    "instructions": "How direct and explicit is the tone of this text?",
+    "criteria": [
+      "Highly indirect and reliant on implication",
+      "Mostly indirect or roundabout",
+      "A balanced mix of suggestion and directness",
+      "Clearly direct with little ambiguity",
+      "Completely explicit and straight to the point"
+    ]
+  },
+  "politeness": {
+    "name": "Politeness",
+    "low": "Rude",
+    "high": "Courteous",
+    "instructions": "How polite and courteous is the tone of this text?",
+    "criteria": [
+      "Openly rude or disrespectful",
+      "Abrupt with limited consideration",
+      "Neutral and basically civil",
+      "Clearly polite and considerate",
+      "Exceptionally courteous and gracious"
+    ]
+  },
+  "optimism": {
+    "name": "Optimism",
+    "low": "Pessimistic",
+    "high": "Optimistic",
+    "instructions": "How optimistic is the outlook expressed by this text?",
+    "criteria": [
+      "Strongly pessimistic or hopeless",
+      "Mostly doubtful or negative",
+      "Balanced or emotionally neutral in outlook",
+      "Clearly hopeful and positive",
+      "Extremely optimistic and confident of a good outcome"
+    ]
+  },
+  "sincerity": {
+    "name": "Sincerity",
+    "low": "Insincere",
+    "high": "Sincere",
+    "instructions": "How genuine and sincere is the tone of this text?",
+    "criteria": [
+      "Clearly disingenuous, deceptive, or performed",
+      "Mostly insincere or difficult to believe",
+      "Ambiguous or neutral in apparent sincerity",
+      "Clearly genuine and earnest",
+      "Deeply sincere and heartfelt"
+    ]
+  },
+  "assertiveness": {
+    "name": "Assertiveness",
+    "low": "Passive",
+    "high": "Assertive",
+    "instructions": "How clearly and firmly does this text state a request, need, decision, or boundary?",
+    "criteria": [
+      "Avoids expressing any request, need, decision, or boundary",
+      "States a position hesitantly or apologetically",
+      "States a position with moderate firmness",
+      "Clearly and firmly states what is wanted or decided",
+      "Unambiguously states a strong demand or boundary"
+    ]
+  },
+  "empathy": {
+    "name": "Empathy",
+    "low": "Detached",
+    "high": "Empathetic",
+    "instructions": "How empathetic and attentive to another person's feelings is this text?",
+    "criteria": [
+      "Dismissive or entirely detached from others' feelings",
+      "Shows little emotional understanding",
+      "Acknowledges another perspective without much warmth",
+      "Clearly understanding and empathetic",
+      "Profoundly compassionate and emotionally attuned"
+    ]
+  },
+  "diplomacy": {
+    "name": "Diplomacy",
+    "low": "Tactless",
+    "high": "Tactful",
+    "instructions": "How tactfully does this text handle disagreement, criticism, or a sensitive subject?",
+    "criteria": [
+      "Highly insensitive or inflammatory about the disagreement",
+      "Shows little tact or awareness of sensitivities",
+      "Handles the subject in a neutral, measured way",
+      "Clearly tactful and considerate of different positions",
+      "Exceptionally diplomatic and careful to preserve the relationship"
+    ]
+  },
+  "humility": {
+    "name": "Humility",
+    "low": "Boastful",
+    "high": "Humble",
+    "instructions": "How humble rather than boastful is the tone of this text?",
+    "criteria": [
+      "Extremely boastful or self-aggrandizing",
+      "Noticeably self-promoting",
+      "Balanced without clear boasting or humility",
+      "Clearly modest and unassuming",
+      "Exceptionally humble or self-effacing"
+    ]
+  },
+  "caution": {
+    "name": "Caution",
+    "low": "Reckless",
+    "high": "Cautious",
+    "instructions": "How cautious and risk-aware is the tone of this text?",
+    "criteria": [
+      "Reckless with no concern for risk",
+      "Shows little caution or risk awareness",
+      "Balances action with reasonable care",
+      "Clearly cautious and attentive to risk",
+      "Extremely cautious or risk-averse"
+    ]
+  },
+  "cooperation": {
+    "name": "Cooperation",
+    "low": "Uncooperative",
+    "high": "Collaborative",
+    "instructions": "How willing is the speaker to coordinate, compromise, or work toward a shared outcome?",
+    "criteria": [
+      "Refuses cooperation or deliberately obstructs shared work",
+      "Reluctant to coordinate or compromise",
+      "Open to working together if needed",
+      "Actively coordinates and supports shared work",
+      "Strongly seeks compromise and shared success"
+    ]
+  },
+  "violence": {
+    "name": "Violence",
+    "low": "Peaceful",
+    "high": "Violent",
+    "instructions": "How much does this text threaten, describe, or encourage physical harm?",
+    "criteria": [
+      "No threat, description, or encouragement of physical harm",
+      "A mild reference to physical force or harm",
+      "Implied physical harm or a clear depiction of violence",
+      "An explicit physical threat or serious violent act",
+      "Graphic, extreme, or repeated physical violence"
+    ]
+  },
+  "whimsy": {
+    "name": "Whimsy",
+    "low": "Practical",
+    "high": "Whimsical",
+    "instructions": "How whimsical, fanciful, or imaginatively unusual is this text?",
+    "criteria": [
+      "Strictly literal and practical",
+      "A slight imaginative or fanciful touch",
+      "Moderately fanciful or quirky",
+      "Clearly whimsical or delightfully surreal",
+      "Wildly fantastical, absurd, or dreamlike"
     ]
   }
 }

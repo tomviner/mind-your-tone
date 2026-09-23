@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 
+import { DIMENSIONS, DIMENSION_KEYS } from "./dimensions";
 import {
   CHALLENGE_DIMENSION_COUNTS,
   CHALLENGE_WIDTHS,
@@ -10,6 +11,49 @@ import {
 } from "./game";
 
 describe("challenge generation", () => {
+  test("offers the complete twenty-dimension tone pool", () => {
+    expect([...DIMENSION_KEYS].sort()).toEqual(
+      [
+        "urgency",
+        "formality",
+        "friendliness",
+        "specificity",
+        "confidence",
+        "emotion",
+        "professionalism",
+        "playfulness",
+        "directness",
+        "politeness",
+        "optimism",
+        "sincerity",
+        "assertiveness",
+        "empathy",
+        "diplomacy",
+        "humility",
+        "caution",
+        "cooperation",
+        "violence",
+        "whimsy",
+      ].sort(),
+    );
+    expect(DIMENSIONS.sincerity.low).toBe("Insincere");
+    expect(DIMENSIONS.diplomacy.low).toBe("Tactless");
+    expect(DIMENSIONS.cooperation.low).toBe("Uncooperative");
+    for (const [key, dimension] of Object.entries(DIMENSIONS)) {
+      expect(dimension.name.toLowerCase()).toBe(key);
+      expect(dimension.name.split(/\s+/)).toHaveLength(1);
+      for (const value of [
+        dimension.low,
+        dimension.high,
+        dimension.instructions,
+        ...dimension.criteria,
+      ]) {
+        expect(value.trim()).not.toBe("");
+      }
+      expect(dimension.criteria).toHaveLength(5);
+    }
+  });
+
   test("repeats the same ten targets for the same seed", () => {
     expect(createChallenge("same-room")).toEqual(createChallenge("same-room"));
     expect(createChallenge("same-room")).not.toEqual(

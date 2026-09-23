@@ -39,6 +39,18 @@ five concrete anchors so Jev returns a score from 0 through 4:
 - **Emotion** — neutral to intense.
 - **Professionalism** — careless to professional.
 - **Playfulness** — serious to playful.
+- **Directness** — indirect to direct.
+- **Politeness** — rude to courteous.
+- **Optimism** — pessimistic to optimistic.
+- **Sincerity** — insincere to sincere.
+- **Assertiveness** — passive to assertive.
+- **Empathy** — detached to empathetic.
+- **Diplomacy** — tactless to tactful.
+- **Humility** — boastful to humble.
+- **Caution** — reckless to cautious.
+- **Cooperation** — uncooperative to collaborative.
+- **Violence** — peaceful to violent.
+- **Whimsy** — practical to whimsical.
 
 Dimensions are sampled without replacement within a level. Selection and target
 placement use a deterministic seeded PRNG. Target bands stay inside 0–4 and are
