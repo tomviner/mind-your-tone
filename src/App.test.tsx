@@ -87,6 +87,14 @@ describe("live challenge play", () => {
     expect(link).toHaveAttribute("href", "https://tone-jev.tomv.uk/");
   });
 
+  test("credits Jev's role beside the game name", () => {
+    render(<App initialSeed={SEED} />);
+
+    expect(
+      within(screen.getByRole("banner")).getByText("you write · Jev scores"),
+    ).toBeInTheDocument();
+  });
+
   test("scores automatically after typing pauses and keeps a missed level", async () => {
     vi.useFakeTimers();
     const round = createChallenge(SEED)[0];

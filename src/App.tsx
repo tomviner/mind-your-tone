@@ -432,9 +432,12 @@ export default function App({ initialSeed }: AppProps) {
   return (
     <main className="game-shell">
       <header className="site-header">
-        <a className="wordmark" href="/" aria-label="mind your tone home">
-          mind your tone<span aria-hidden="true">!</span>
-        </a>
+        <div className="brand-lockup">
+          <a className="wordmark" href="/" aria-label="mind your tone home">
+            mind your tone<span aria-hidden="true">!</span>
+          </a>
+          <span className="model-credit">you write · Jev scores</span>
+        </div>
         <a
           className="text-button sibling-link"
           href="https://tone-jev.tomv.uk/"

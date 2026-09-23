@@ -93,6 +93,21 @@ a:focus-visible {
   color: var(--red);
 }
 
+.brand-lockup {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+}
+
+.model-credit {
+  color: var(--red);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+}
+
 .mode-switch {
   display: flex;
   border: 2px solid var(--ink);
