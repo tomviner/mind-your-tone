@@ -1,11 +1,7 @@
 import { DIMENSIONS, type DimensionKey } from "../../src/dimensions";
 
 interface AiRunner {
-  run(
-    model: string,
-    input: unknown,
-    options?: { gateway: { id: string } },
-  ): Promise<unknown>;
+  run(model: string, input: unknown): Promise<unknown>;
 }
 
 interface ScoreContext {
@@ -121,7 +117,7 @@ export async function onRequestPost(context: ScoreContext): Promise<Response> {
   const origin = context.request.headers.get("origin");
   if (origin) {
     try {
-      if (new URL(origin).host !== requestUrl.host) {
+      if (new URL(origin).origin !== requestUrl.origin) {
         return json({ error: "Cross-origin requests are not allowed" }, 403);
       }
     } catch {
@@ -143,7 +139,6 @@ export async function onRequestPost(context: ScoreContext): Promise<Response> {
     const result = await context.env.AI.run(
       "typesafe/jev",
       buildJevInput(body.phrase, body.dimensions),
-      { gateway: { id: "mind-your-tone-jev" } },
     );
     return json(scoresFromJevResponse(result, body.dimensions));
   } catch (error) {

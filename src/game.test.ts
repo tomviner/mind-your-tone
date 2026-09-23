@@ -64,10 +64,10 @@ describe("round scoring", () => {
   });
 
   test("makes a wide one-dimension practice target for the chosen rubric", () => {
-    const round = createPracticeRound("practice-seed", "jazz_hands");
+    const round = createPracticeRound("practice-seed", "playfulness");
 
     expect(round.width).toBe(0.4);
     expect(round.dimensions).toHaveLength(1);
-    expect(round.dimensions[0].key).toBe("jazz_hands");
+    expect(round.dimensions[0].key).toBe("playfulness");
   });
 });

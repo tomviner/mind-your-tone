@@ -1,10 +1,4 @@
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import App from "./App";
@@ -26,9 +20,18 @@ const scoreBody = (round: GameRound, hit: boolean) => ({
   ),
 });
 
-const setPhrase = (phrase = "Please send the signed copy by noon.") => {
+const typePhrase = (phrase = "Please send the signed copy by noon.") => {
   fireEvent.change(screen.getByLabelText("Your phrase"), {
     target: { value: phrase },
+  });
+};
+
+const finishDebounce = async () => {
+  await act(async () => {
+    vi.advanceTimersByTime(650);
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
   });
 };
 
@@ -38,33 +41,38 @@ afterEach(() => {
   window.localStorage.clear();
 });
 
-describe("challenge play", () => {
-  test("opens on a forgiving one-dimension level", () => {
+describe("live challenge play", () => {
+  test("opens on a forgiving one-dimension level without a submit button", () => {
     render(<App initialSeed={SEED} />);
 
     expect(screen.getByText("level 1 / 10")).toBeInTheDocument();
     expect(screen.getAllByRole("meter")).toHaveLength(1);
     expect(
-      screen.getByRole("button", { name: "check my tone" }),
-    ).toBeDisabled();
+      screen.queryByRole("button", { name: /check my tone/i }),
+    ).not.toBeInTheDocument();
   });
 
-  test("keeps the same level after a missed target", async () => {
+  test("scores automatically after typing pauses and keeps a missed level", async () => {
+    vi.useFakeTimers();
     const round = createChallenge(SEED)[0];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => Response.json(scoreBody(round, false))),
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        Response.json(scoreBody(round, false)),
     );
+    vi.stubGlobal("fetch", fetchMock);
     render(<App initialSeed={SEED} />);
 
-    setPhrase();
-    fireEvent.click(screen.getByRole("button", { name: "check my tone" }));
+    typePhrase();
+    expect(fetchMock).not.toHaveBeenCalled();
+    await finishDebounce();
 
-    expect(await screen.findByText("Closer.")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Closer.")).toBeInTheDocument();
     expect(screen.getByText("level 1 / 10")).toBeInTheDocument();
   });
 
-  test("awards the live clock and advances after hitting every target", async () => {
+  test("awards the live clock and advances when live scores hit every target", async () => {
+    vi.useFakeTimers();
     const round = createChallenge(SEED)[0];
     vi.stubGlobal(
       "fetch",
@@ -72,27 +80,64 @@ describe("challenge play", () => {
     );
     render(<App initialSeed={SEED} />);
 
-    setPhrase();
-    fireEvent.click(screen.getByRole("button", { name: "check my tone" }));
+    typePhrase();
+    await finishDebounce();
 
-    expect(await screen.findByText("level 2 / 10")).toBeInTheDocument();
+    expect(screen.getByText("level 2 / 10")).toBeInTheDocument();
     expect(screen.getByText("30 total")).toBeInTheDocument();
     expect(screen.getByText("Nailed it. New target.")).toBeInTheDocument();
   });
 
-  test("allows only one scoring request while a submission is in flight", () => {
-    const fetchPromise = new Promise<Response>(() => undefined);
-    const fetchMock = vi.fn(() => fetchPromise);
+  test("cancels a pending evaluation when the phrase changes again", async () => {
+    vi.useFakeTimers();
+    const round = createChallenge(SEED)[0];
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        Response.json(scoreBody(round, false)),
+    );
     vi.stubGlobal("fetch", fetchMock);
     render(<App initialSeed={SEED} />);
 
-    setPhrase();
-    const button = screen.getByRole("button", { name: "check my tone" });
-    fireEvent.click(button);
-    fireEvent.click(button);
+    typePhrase("First draft");
+    act(() => vi.advanceTimersByTime(300));
+    typePhrase("Second draft");
+    await finishDebounce();
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(button).toBeDisabled();
+    expect(JSON.parse(fetchMock.mock.calls[0][1]?.body as string).phrase).toBe(
+      "Second draft",
+    );
+  });
+
+  test("clears an in-flight evaluation when the textarea is emptied", async () => {
+    vi.useFakeTimers();
+    const round = createChallenge(SEED)[0];
+    let resolveRequest: ((response: Response) => void) | undefined;
+    const fetchMock = vi.fn(
+      (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Promise<Response>((resolve) => {
+          resolveRequest = resolve;
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App initialSeed={SEED} />);
+
+    typePhrase("First draft");
+    await finishDebounce();
+    expect(screen.getByText("Jev is scoring…")).toBeInTheDocument();
+
+    typePhrase("");
+    expect(fetchMock.mock.calls[0][1]?.signal?.aborted).toBe(true);
+    expect(
+      screen.getByText("Type to score. Hit every target."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("live")).toBeInTheDocument();
+
+    await act(async () => {
+      resolveRequest?.(Response.json(scoreBody(round, true)));
+      await Promise.resolve();
+    });
+    expect(screen.getByText("level 1 / 10")).toBeInTheDocument();
   });
 
   test("still scores and advances after the clock reaches zero", async () => {
@@ -104,36 +149,12 @@ describe("challenge play", () => {
     );
     render(<App initialSeed={SEED} />);
 
-    act(() => {
-      vi.advanceTimersByTime(31_000);
-    });
+    act(() => vi.advanceTimersByTime(31_000));
     expect(screen.getByText("0 points left")).toBeInTheDocument();
-
-    setPhrase();
-    fireEvent.click(screen.getByRole("button", { name: "check my tone" }));
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
-    });
+    typePhrase();
+    await finishDebounce();
 
     expect(screen.getByText("level 2 / 10")).toBeInTheDocument();
     expect(screen.getByText("0 total")).toBeInTheDocument();
-  });
-
-  test("surfaces a retryable fixed message when scoring fails", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response(null, { status: 502 })),
-    );
-    render(<App initialSeed={SEED} />);
-
-    setPhrase();
-    fireEvent.click(screen.getByRole("button", { name: "check my tone" }));
-
-    await waitFor(() =>
-      expect(screen.getByText("Jev blinked. Try again.")).toBeInTheDocument(),
-    );
-    expect(screen.getByRole("button", { name: "check my tone" })).toBeEnabled();
   });
 });

@@ -3,8 +3,8 @@
 ## Intent
 
 Build a public, mobile-first phrase game that becomes understandable within one
-attempt: type a phrase, submit it, watch Jev place needles on tone scales, then
-edit the phrase until every needle lands in its target band. The game should be
+attempt: type a phrase, pause, watch Jev place needles on tone scales, then edit
+the phrase until every needle lands in its target band. The game should be
 forgiving before it becomes demanding, amusing without generating commentary,
 and entirely scored by TypeSafe's Jev model.
 
@@ -17,7 +17,7 @@ of a five-anchor Jev Score scale, are `40%, 40%, 36%, 38%, 34%, 30%, 32%, 27%,
 feeling mechanically punitive.
 
 Every level begins with 30 available points. The counter falls once per second
-to zero and then stays there; zero never disables submission or ends the level.
+to zero and then stays there; zero never disables scoring or ends the level.
 Any failed evaluation leaves the same targets in place and allows another edit.
 A successful evaluation awards the counter's current value and advances. After
 level ten the run ends with a total score. A seed in the URL makes the target
@@ -28,18 +28,17 @@ keeps trying against freshly generated wide targets.
 
 ## Dimensions
 
-Each rubric represents a distinct property and uses five concrete anchors so
-Jev returns a score from 0 through 4:
+Each rubric represents a familiar, reasonably independent property and uses
+five concrete anchors so Jev returns a score from 0 through 4:
 
-- **Red alert** — leisurely to immediate urgency.
-- **Corporate fog** — plain speech to bureaucratic jargon.
-- **Jazz hands** — deadpan restraint to flamboyant playfulness.
-- **Main character** — impersonal focus to conspicuous self-focus.
-- **Knife out** — gentle regard to open hostility.
-- **Receipts** — vague assertion to checkable specificity.
-- **Pinky swear** — hedging to absolute commitment.
-- **Feelings leak** — emotionally sealed to emotionally overflowing.
-- **Sugar coating** — blunt delivery to elaborate tact.
+- **Urgency** — relaxed to immediate.
+- **Formality** — casual to formal.
+- **Friendliness** — cold to warm.
+- **Specificity** — vague to precise.
+- **Confidence** — uncertain to certain.
+- **Emotion** — neutral to intense.
+- **Professionalism** — careless to professional.
+- **Playfulness** — serious to playful.
 
 Dimensions are sampled without replacement within a level. Selection and target
 placement use a deterministic seeded PRNG. Target bands stay inside 0–4 and are
@@ -68,7 +67,8 @@ repository secrets only for deployment credentials.
 
 The page leads with the lowercase title `mind your tone`, the level, the points
 remaining, and one instruction: “Write a line. Hit every target.” Meters sit
-directly above a 120-character textarea and submit button. Each meter includes
+directly above a 120-character textarea. Scoring begins 600 ms after typing
+pauses, with no submit button. Each meter includes
 the dimension name, human-readable target interval, endpoint labels, a visible
 target band, a needle, and an exact numeric score after evaluation.
 
@@ -78,22 +78,22 @@ hatching, needle shape, labels, and status icons ensure meaning never relies on
 color alone. Motion is short and disabled under `prefers-reduced-motion`.
 
 Status copy is fixed UI text only: concise states such as “Closer.”, “Nailed
-it.”, and “Jev blinked. Try again.” There is no generated explanation, advice,
+it.”, and “Jev blinked. Keep typing.” There is no generated explanation, advice,
 or replacement phrase.
 
 ## Error Handling and Privacy
 
 Empty or overlong phrases are rejected before inference. API input is bounded
 to three known dimensions. Cross-origin browser requests are rejected. Network
-or model failures preserve the phrase and level, restore the submit button, and
-show a retryable fixed message. Responses are marked `no-store`; phrases are not
-logged or persisted. Only high score and last mode are saved locally.
+or model failures preserve the phrase and level, stop the scoring indicator,
+and show a fixed retryable message. Responses are marked `no-store`; phrases are
+not logged or persisted. Only the high score is saved locally.
 
 ## Verification
 
 Unit tests cover deterministic levels, target-width progression, dimension
 counts, zero-point completion, Jev request construction, response parsing, and
-input rejection. Component tests cover submit/retry/success flows and the
+input rejection. Component tests cover debounce/cancellation/success flows and the
 non-blocking zero clock. The production build, Pages configuration, and public
 routes are checked. Finally, several real phrases are played through the live
 site to confirm Jev scores move plausibly, early levels are attainable, zero
@@ -103,5 +103,4 @@ game.
 ## Non-goals
 
 No accounts, leaderboard, generated text, hints, chat, multiplayer, payments,
-database, analytics SDK, or server-side phrase history. Live scoring while
-typing is excluded to control cost and keep each evaluation intentional.
+database, analytics SDK, or server-side phrase history.

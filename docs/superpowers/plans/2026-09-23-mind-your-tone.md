@@ -85,7 +85,7 @@
 - Consumes: challenge/practice rounds and `POST /api/score`.
 - Produces: the complete browser game and accessible score meters.
 
-- [ ] Write failing component tests for the initial one-dimension level, disabled empty submit, a failed target attempt, a successful advancement/point award, one in-flight request under double submit, and submission after the clock displays zero.
+- [x] Write component tests for the initial one-dimension level, debounced live scoring, a failed target attempt, successful advancement/point award, cancellation after further typing, and scoring after the clock displays zero.
 - [ ] Run `npm test -- src/App.test.tsx` and confirm failure because UI modules do not exist.
 - [ ] Implement the state machine, countdown, fetch boundary, fixed micro-copy, seeded share link, local high score, practice selector, and ten-level completion screen.
 - [ ] Implement responsive semantic markup and CSS meters with hatched target bands, shape-coded needles, exact values, focus states, and reduced-motion behavior.

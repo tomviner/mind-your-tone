@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import ScoreMeter from "./ScoreMeter";
 import { DIMENSIONS, DIMENSION_KEYS, type DimensionKey } from "./dimensions";
@@ -34,16 +34,23 @@ export default function App({ initialSeed }: AppProps) {
   const [seed, setSeed] = useState(() => initialSeed ?? seedFromLocation());
   const [mode, setMode] = useState<Mode>("challenge");
   const [levelIndex, setLevelIndex] = useState(0);
-  const [practiceKey, setPracticeKey] = useState<DimensionKey>("red_alert");
+  const [practiceKey, setPracticeKey] = useState<DimensionKey>("urgency");
   const [practiceSerial, setPracticeSerial] = useState(0);
   const [phrase, setPhrase] = useState("");
   const [scores, setScores] = useState<ScoreMap>({});
   const [pointsLeft, setPointsLeft] = useState(30);
   const [total, setTotal] = useState(0);
   const [highScore, setHighScore] = useState(savedHighScore);
-  const [status, setStatus] = useState("Write a line. Hit every target.");
+  const [status, setStatus] = useState("Type to score. Hit every target.");
   const [loading, setLoading] = useState(false);
   const [complete, setComplete] = useState(false);
+  const pointsLeftRef = useRef(pointsLeft);
+  const totalRef = useRef(total);
+  const highScoreRef = useRef(highScore);
+
+  pointsLeftRef.current = pointsLeft;
+  totalRef.current = total;
+  highScoreRef.current = highScore;
 
   const challenge = useMemo(() => createChallenge(seed), [seed]);
   const practiceRound = useMemo(
@@ -60,10 +67,106 @@ export default function App({ initialSeed }: AppProps) {
     return () => window.clearInterval(timer);
   }, [complete, levelIndex, mode]);
 
+  useEffect(() => {
+    if (complete || !phrase.trim() || phrase.length > 120) return undefined;
+
+    const controller = new AbortController();
+    setLoading(false);
+    setStatus("Waiting for a pause…");
+    const timer = window.setTimeout(async () => {
+      setLoading(true);
+      setStatus("Jev is scoring…");
+
+      try {
+        const response = await fetch("/api/score", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            phrase,
+            dimensions: round.dimensions.map(({ key }) => key),
+          }),
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error("score request failed");
+        const body = (await response.json()) as { scores?: ScoreMap };
+        if (controller.signal.aborted) return;
+        if (!body.scores) throw new Error("missing scores");
+        const hasEveryScore = round.dimensions.every(
+          ({ key }) => typeof body.scores?.[key]?.score === "number",
+        );
+        if (!hasEveryScore) throw new Error("missing score");
+
+        setScores(body.scores);
+        const hit = round.dimensions.every(({ key, target }) =>
+          isInsideTarget(body.scores?.[key]?.score ?? Number.NaN, target),
+        );
+        if (!hit) {
+          setStatus("Closer.");
+          setLoading(false);
+          return;
+        }
+
+        if (mode === "practice") {
+          setPracticeSerial((current) => current + 1);
+          setPhrase("");
+          setScores({});
+          setLoading(false);
+          setStatus("Nailed it. Fresh target.");
+          return;
+        }
+
+        const nextTotal =
+          totalRef.current + pointsForSuccess(pointsLeftRef.current);
+        totalRef.current = nextTotal;
+        setTotal(nextTotal);
+        if (levelIndex === challenge.length - 1) {
+          setComplete(true);
+          setLoading(false);
+          setStatus("Tone mastered.");
+          if (nextTotal > highScoreRef.current) {
+            highScoreRef.current = nextTotal;
+            setHighScore(nextTotal);
+            window.localStorage.setItem(
+              "mind-your-tone-high-score",
+              String(nextTotal),
+            );
+          }
+          return;
+        }
+
+        setLevelIndex((current) => current + 1);
+        setPointsLeft(30);
+        pointsLeftRef.current = 30;
+        setPhrase("");
+        setScores({});
+        setLoading(false);
+        setStatus("Nailed it. New target.");
+      } catch {
+        if (controller.signal.aborted) return;
+        setStatus("Jev blinked. Keep typing.");
+        setLoading(false);
+      }
+    }, 600);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [challenge.length, complete, levelIndex, mode, phrase, round]);
+
   const resetRoundView = () => {
     setPhrase("");
     setScores({});
     setLoading(false);
+  };
+
+  const updatePhrase = (nextPhrase: string) => {
+    setPhrase(nextPhrase);
+    if (!nextPhrase.trim()) {
+      setScores({});
+      setLoading(false);
+      setStatus("Type to score. Hit every target.");
+    }
   };
 
   const chooseMode = (nextMode: Mode) => {
@@ -71,82 +174,12 @@ export default function App({ initialSeed }: AppProps) {
     setLevelIndex(0);
     setPracticeSerial(0);
     setPointsLeft(30);
+    pointsLeftRef.current = 30;
     setTotal(0);
+    totalRef.current = 0;
     setComplete(false);
-    setStatus("Write a line. Hit every target.");
+    setStatus("Type to score. Hit every target.");
     resetRoundView();
-  };
-
-  const finishChallenge = (nextTotal: number) => {
-    setComplete(true);
-    setTotal(nextTotal);
-    setStatus("Tone mastered.");
-    if (nextTotal > highScore) {
-      setHighScore(nextTotal);
-      window.localStorage.setItem(
-        "mind-your-tone-high-score",
-        String(nextTotal),
-      );
-    }
-  };
-
-  const advanceAfterHit = () => {
-    if (mode === "practice") {
-      setPracticeSerial((current) => current + 1);
-      setStatus("Nailed it. Fresh target.");
-      resetRoundView();
-      return;
-    }
-
-    const nextTotal = total + pointsForSuccess(pointsLeft);
-    if (levelIndex === challenge.length - 1) {
-      finishChallenge(nextTotal);
-      return;
-    }
-    setTotal(nextTotal);
-    setLevelIndex((current) => current + 1);
-    setPointsLeft(30);
-    setStatus("Nailed it. New target.");
-    resetRoundView();
-  };
-
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (loading || !phrase.trim() || phrase.length > 120) return;
-    setLoading(true);
-    setStatus("Jev is judging…");
-
-    try {
-      const response = await fetch("/api/score", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          phrase,
-          dimensions: round.dimensions.map(({ key }) => key),
-        }),
-      });
-      if (!response.ok) throw new Error("score request failed");
-      const body = (await response.json()) as { scores?: ScoreMap };
-      if (!body.scores) throw new Error("missing scores");
-      const hasEveryScore = round.dimensions.every(
-        ({ key }) => typeof body.scores?.[key]?.score === "number",
-      );
-      if (!hasEveryScore) throw new Error("missing score");
-
-      setScores(body.scores);
-      const hit = round.dimensions.every(({ key, target }) =>
-        isInsideTarget(body.scores?.[key]?.score ?? Number.NaN, target),
-      );
-      if (hit) {
-        advanceAfterHit();
-      } else {
-        setStatus("Closer.");
-        setLoading(false);
-      }
-    } catch {
-      setStatus("Jev blinked. Try again.");
-      setLoading(false);
-    }
   };
 
   const copyChallenge = async () => {
@@ -166,9 +199,11 @@ export default function App({ initialSeed }: AppProps) {
     setSeed(nextSeed);
     setLevelIndex(0);
     setPointsLeft(30);
+    pointsLeftRef.current = 30;
     setTotal(0);
+    totalRef.current = 0;
     setComplete(false);
-    setStatus("Write a line. Hit every target.");
+    setStatus("Type to score. Hit every target.");
     resetRoundView();
   };
 
@@ -214,14 +249,14 @@ export default function App({ initialSeed }: AppProps) {
 
         {mode === "practice" && (
           <label className="practice-picker">
-            Pick your problem
+            Pick a dimension
             <select
               value={practiceKey}
               onChange={(event) => {
                 setPracticeKey(event.target.value as DimensionKey);
                 setPracticeSerial((current) => current + 1);
                 setScores({});
-                setStatus("Write a line. Hit the target.");
+                setStatus("Type to score. Hit the target.");
               }}
             >
               {DIMENSION_KEYS.map((key) => (
@@ -237,7 +272,7 @@ export default function App({ initialSeed }: AppProps) {
           <div className="finish-screen">
             <p className="eyebrow">run complete</p>
             <h1 id="game-heading">{total} points</h1>
-            <p>You bent nine kinds of tone without breaking a sentence.</p>
+            <p>You shaped every tone without breaking a sentence.</p>
             <div className="finish-actions">
               <button
                 className="primary-button"
@@ -258,7 +293,7 @@ export default function App({ initialSeed }: AppProps) {
         ) : (
           <>
             <div className="intro-copy">
-              <p className="eyebrow">type → judge → adjust</p>
+              <p className="eyebrow">type → scored live → adjust</p>
               <h1 id="game-heading">Write a line. Hit every target.</h1>
             </div>
 
@@ -273,12 +308,10 @@ export default function App({ initialSeed }: AppProps) {
               ))}
             </div>
 
-            <form onSubmit={submit} className="phrase-form">
+            <div className="phrase-form">
               <div className="input-heading">
                 <label htmlFor="phrase">Your phrase</label>
-                <span className={phrase.length > 120 ? "over-limit" : ""}>
-                  {phrase.length}/120
-                </span>
+                <span>{phrase.length}/120</span>
               </div>
               <textarea
                 id="phrase"
@@ -287,7 +320,7 @@ export default function App({ initialSeed }: AppProps) {
                 rows={3}
                 autoFocus
                 placeholder="Try: Could you send that over today?"
-                onChange={(event) => setPhrase(event.target.value)}
+                onChange={(event) => updatePhrase(event.target.value)}
               />
               <div className="form-footer">
                 <p className="status" role="status">
@@ -296,15 +329,11 @@ export default function App({ initialSeed }: AppProps) {
                   </span>
                   {status}
                 </p>
-                <button
-                  className="primary-button"
-                  type="submit"
-                  disabled={loading || !phrase.trim() || phrase.length > 120}
-                >
-                  {loading ? "judging…" : "check my tone"}
-                </button>
+                <span className={`live-badge${loading ? " is-scoring" : ""}`}>
+                  {loading ? "scoring…" : "live"}
+                </span>
               </div>
-            </form>
+            </div>
           </>
         )}
       </section>

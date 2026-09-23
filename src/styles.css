@@ -347,6 +347,29 @@ textarea::placeholder {
   font-size: 1.1rem;
 }
 
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--green);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.live-badge::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.live-badge.is-scoring {
+  color: var(--blue);
+}
+
 .primary-button {
   border: 2px solid var(--ink);
   border-radius: 999px;
