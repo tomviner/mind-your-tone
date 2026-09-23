@@ -32,6 +32,8 @@ const SUCCESS_HOLD_MS = 5_000;
 const SUCCESS_TYPING_GRACE_MS = 1_000;
 const MAX_API_LOG_ENTRIES = 20;
 const MAX_PHRASE_LENGTH = 120;
+const JEV_MODEL_URL =
+  "https://developers.cloudflare.com/ai/models/typesafe/jev/";
 
 const seedFromLocation = (): string => {
   const supplied = new URLSearchParams(window.location.search).get("seed");
@@ -453,7 +455,18 @@ export default function App({ initialSeed }: AppProps) {
           <a className="wordmark" href="/" aria-label="mind your tone home">
             mind your tone<span aria-hidden="true">!</span>
           </a>
-          <span className="model-credit">you write · Jev scores</span>
+          <span className="model-credit">
+            you write ·{" "}
+            <a
+              className="model-link"
+              href={JEV_MODEL_URL}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Jev
+            </a>{" "}
+            scores
+          </span>
         </div>
         <a className="text-button sibling-link" href={siblingUrl}>
           tone your mind <span aria-hidden="true">→</span>
@@ -626,7 +639,18 @@ export default function App({ initialSeed }: AppProps) {
       </section>
 
       <footer className="site-footer">
-        <span>you write · TypeSafe Jev scores · nothing is saved</span>
+        <span>
+          you write · TypeSafe{" "}
+          <a
+            className="model-link"
+            href={JEV_MODEL_URL}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Jev
+          </a>{" "}
+          scores · nothing is saved
+        </span>
         <div className="footer-actions">
           <a
             href="#inspect-api"

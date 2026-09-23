@@ -113,12 +113,24 @@ describe("live challenge play", () => {
     expect(screen.getByLabelText("Your phrase")).toHaveValue("x".repeat(120));
   });
 
-  test("credits Jev's role beside the game name", () => {
+  test("links Jev's credit to the model documentation", () => {
     render(<App initialSeed={SEED} />);
 
-    expect(
-      within(screen.getByRole("banner")).getByText("you write · Jev scores"),
-    ).toBeInTheDocument();
+    const links = [
+      within(screen.getByRole("banner")).getByRole("link", { name: "Jev" }),
+      within(screen.getByRole("contentinfo")).getByRole("link", {
+        name: "Jev",
+      }),
+    ];
+
+    for (const link of links) {
+      expect(link).toHaveAttribute(
+        "href",
+        "https://developers.cloudflare.com/ai/models/typesafe/jev/",
+      );
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noreferrer");
+    }
   });
 
   test("scores automatically after typing pauses and keeps a missed level", async () => {

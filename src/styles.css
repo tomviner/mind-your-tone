@@ -108,6 +108,14 @@ a:focus-visible {
   line-height: 1.2;
 }
 
+.model-credit .model-link,
+.site-footer .model-link {
+  color: inherit;
+  font: inherit;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
 .mode-switch {
   display: flex;
   border: 2px solid var(--ink);
