@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import ScoreMeter from "./ScoreMeter";
+import ScoreMeter, { type ScoreFreshness } from "./ScoreMeter";
 import { DIMENSIONS, DIMENSION_KEYS, type DimensionKey } from "./dimensions";
 import {
   createChallenge,
@@ -45,6 +45,8 @@ export default function App({ initialSeed }: AppProps) {
   const [highScore, setHighScore] = useState(savedHighScore);
   const [status, setStatus] = useState("Type to score. Hit every target.");
   const [loading, setLoading] = useState(false);
+  const [scoreFreshness, setScoreFreshness] =
+    useState<ScoreFreshness>("current");
   const [celebrating, setCelebrating] = useState(false);
   const [complete, setComplete] = useState(false);
   const pointsLeftRef = useRef(pointsLeft);
@@ -103,6 +105,7 @@ export default function App({ initialSeed }: AppProps) {
         if (!hasEveryScore) throw new Error("missing score");
 
         setScores(body.scores);
+        setScoreFreshness("current");
         const hit = round.dimensions.every(({ key, target }) =>
           isInsideTarget(body.scores?.[key]?.score ?? Number.NaN, target),
         );
@@ -120,6 +123,7 @@ export default function App({ initialSeed }: AppProps) {
         if (controller.signal.aborted) return;
         setStatus("Jev blinked. Keep typing.");
         setLoading(false);
+        setScoreFreshness("stale");
       }
     }, 600);
 
@@ -137,6 +141,7 @@ export default function App({ initialSeed }: AppProps) {
         setPracticeSerial((current) => current + 1);
         setPhrase("");
         setScores({});
+        setScoreFreshness("current");
         setCelebrating(false);
         setStatus("Fresh target.");
         return;
@@ -166,6 +171,7 @@ export default function App({ initialSeed }: AppProps) {
       pointsLeftRef.current = 30;
       setPhrase("");
       setScores({});
+      setScoreFreshness("current");
       setCelebrating(false);
       setStatus("New target.");
     }, SUCCESS_HOLD_MS);
@@ -177,6 +183,7 @@ export default function App({ initialSeed }: AppProps) {
     setPhrase("");
     setScores({});
     setLoading(false);
+    setScoreFreshness("current");
     setCelebrating(false);
   };
 
@@ -186,8 +193,11 @@ export default function App({ initialSeed }: AppProps) {
     if (!nextPhrase.trim()) {
       setScores({});
       setLoading(false);
+      setScoreFreshness("current");
       setStatus("Type to score. Hit every target.");
+      return;
     }
+    setScoreFreshness("pending");
   };
 
   const chooseMode = (nextMode: Mode) => {
@@ -279,6 +289,7 @@ export default function App({ initialSeed }: AppProps) {
                 setPracticeKey(event.target.value as DimensionKey);
                 setPracticeSerial((current) => current + 1);
                 setScores({});
+                setScoreFreshness("current");
                 setStatus("Type to score. Hit the target.");
               }}
             >
@@ -321,8 +332,9 @@ export default function App({ initialSeed }: AppProps) {
             </div>
 
             <div
-              className={`meters${celebrating ? " is-celebrating" : ""}`}
+              className={`meters${celebrating ? " is-celebrating" : ""}${scoreFreshness !== "current" ? " has-stale-scores" : ""}`}
               aria-label="Tone targets"
+              aria-busy={scoreFreshness === "pending"}
             >
               {round.dimensions.map(({ key, target }) => (
                 <ScoreMeter
@@ -330,6 +342,7 @@ export default function App({ initialSeed }: AppProps) {
                   dimensionKey={key}
                   target={target}
                   score={scores[key]?.score}
+                  freshness={scoreFreshness}
                 />
               ))}
             </div>

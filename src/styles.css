@@ -217,6 +217,10 @@ a:focus-visible {
   font-size: 1.55rem;
   font-weight: 900;
   line-height: 1;
+  transition:
+    color 150ms ease,
+    opacity 150ms ease,
+    filter 150ms ease;
 }
 
 .meter-plot {
@@ -265,7 +269,10 @@ a:focus-visible {
   border-radius: 4px;
   background: var(--blue);
   box-shadow: 0 0 0 2px var(--paper);
-  transition: left 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition:
+    left 320ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 150ms ease,
+    filter 150ms ease;
 }
 
 .score-needle span {
@@ -282,6 +289,16 @@ a:focus-visible {
 .is-hit .score-needle,
 .is-hit .score-needle span {
   background: var(--green);
+}
+
+.meters.has-stale-scores .meter-score,
+.meters.has-stale-scores .score-needle {
+  opacity: 0.72;
+  filter: saturate(0.55);
+}
+
+.meters.has-stale-scores .meter-score {
+  font-style: italic;
 }
 
 .meters.is-celebrating .score-meter.is-hit .meter-track::after {
@@ -590,5 +607,16 @@ textarea::placeholder {
   .score-needle,
   .score-needle span {
     background: Highlight;
+  }
+
+  .meters.has-stale-scores .meter-score,
+  .meters.has-stale-scores .score-needle {
+    opacity: 1;
+    filter: none;
+  }
+
+  .meters.has-stale-scores .score-needle {
+    outline: 2px dashed CanvasText;
+    outline-offset: 2px;
   }
 }

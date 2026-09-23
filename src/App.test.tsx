@@ -75,6 +75,76 @@ describe("live challenge play", () => {
     expect(screen.getByText("level 1 / 10")).toBeInTheDocument();
   });
 
+  test("marks the previous score stale while an edited phrase is rescored", async () => {
+    vi.useFakeTimers();
+    const round = createChallenge(SEED)[0];
+    const { key, target } = round.dimensions[0];
+    const firstScore = target.min > 0 ? 0 : 4;
+    const secondScore = target.min > 0 ? target.min / 2 : (target.max + 4) / 2;
+    const bodyWithScore = (score: number) => ({
+      model: "jev-1.13.0",
+      scores: { [key]: { score, confidence: 0.9 } },
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(Response.json(bodyWithScore(firstScore)))
+        .mockResolvedValueOnce(Response.json(bodyWithScore(secondScore))),
+    );
+    render(<App initialSeed={SEED} />);
+
+    typePhrase("First draft");
+    await finishDebounce();
+    const meters = screen.getByLabelText("Tone targets");
+    const scoredMeter = screen.getByRole("meter");
+    const previousScore = scoredMeter.getAttribute("aria-valuenow");
+    expect(meters).toHaveAttribute("aria-busy", "false");
+    expect(meters).not.toHaveClass("has-stale-scores");
+
+    typePhrase("Edited draft");
+    expect(meters).toHaveAttribute("aria-busy", "true");
+    expect(meters).toHaveClass("has-stale-scores");
+    expect(scoredMeter).toHaveAttribute("aria-valuenow", previousScore);
+    expect(scoredMeter).toHaveAttribute(
+      "aria-valuetext",
+      expect.stringContaining("Update pending"),
+    );
+
+    await finishDebounce();
+    expect(meters).toHaveAttribute("aria-busy", "false");
+    expect(meters).not.toHaveClass("has-stale-scores");
+    expect(scoredMeter).toHaveAttribute("aria-valuenow", String(secondScore));
+  });
+
+  test("keeps an unsuccessful refresh visibly and accessibly stale", async () => {
+    vi.useFakeTimers();
+    const round = createChallenge(SEED)[0];
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(Response.json(scoreBody(round, false)))
+        .mockResolvedValueOnce(
+          Response.json({ error: "unavailable" }, { status: 502 }),
+        ),
+    );
+    render(<App initialSeed={SEED} />);
+
+    typePhrase("First draft");
+    await finishDebounce();
+    typePhrase("Edited draft");
+    await finishDebounce();
+
+    const meters = screen.getByLabelText("Tone targets");
+    expect(meters).toHaveAttribute("aria-busy", "false");
+    expect(meters).toHaveClass("has-stale-scores");
+    expect(screen.getByRole("meter")).toHaveAttribute(
+      "aria-valuetext",
+      expect.stringContaining("Update failed"),
+    );
+  });
+
   test("awards the live clock and advances when live scores hit every target", async () => {
     vi.useFakeTimers();
     const round = createChallenge(SEED)[0];
