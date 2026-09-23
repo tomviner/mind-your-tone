@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import ApiInspector, { type ApiLogEntry } from "./ApiInspector";
 import ScoreMeter, { type ScoreFreshness } from "./ScoreMeter";
 import { DIMENSIONS, DIMENSION_KEYS, type DimensionKey } from "./dimensions";
 import {
@@ -13,12 +14,22 @@ type Mode = "challenge" | "practice";
 type ScoreMap = Partial<
   Record<DimensionKey, { score: number; confidence: number | null }>
 >;
+type ScoreResponse = {
+  error?: string;
+  inspection?: {
+    request?: unknown;
+    response?: unknown;
+  };
+  model?: string | null;
+  scores?: ScoreMap;
+};
 
 interface AppProps {
   initialSeed?: string;
 }
 
-const SUCCESS_HOLD_MS = 900;
+const SUCCESS_HOLD_MS = 3_000;
+const MAX_API_LOG_ENTRIES = 20;
 
 const seedFromLocation = (): string => {
   const supplied = new URLSearchParams(window.location.search).get("seed");
@@ -49,10 +60,18 @@ export default function App({ initialSeed }: AppProps) {
     useState<ScoreFreshness>("current");
   const [celebrating, setCelebrating] = useState(false);
   const [complete, setComplete] = useState(false);
+  const [apiInspectorOpen, setApiInspectorOpen] = useState(
+    () => window.location.hash === "#inspect-api",
+  );
+  const [apiLog, setApiLog] = useState<ApiLogEntry[]>([]);
   const pointsLeftRef = useRef(pointsLeft);
-  const successPointsRef = useRef(pointsLeft);
   const totalRef = useRef(total);
   const highScoreRef = useRef(highScore);
+  const apiRequestIdRef = useRef(0);
+  const advancingRef = useRef(false);
+  const phraseInputRef = useRef<HTMLTextAreaElement>(null);
+  const finishHeadingRef = useRef<HTMLHeadingElement>(null);
+  const inspectApiLinkRef = useRef<HTMLAnchorElement>(null);
 
   pointsLeftRef.current = pointsLeft;
   totalRef.current = total;
@@ -64,6 +83,57 @@ export default function App({ initialSeed }: AppProps) {
     [practiceKey, practiceSerial, seed],
   );
   const round = mode === "challenge" ? challenge[levelIndex] : practiceRound;
+  const advanceLabel =
+    mode === "practice"
+      ? "next target"
+      : levelIndex === challenge.length - 1
+        ? "see results"
+        : "next level";
+
+  const advanceFromSuccess = useCallback(() => {
+    if (!celebrating || advancingRef.current) return;
+    advancingRef.current = true;
+
+    if (mode === "practice") {
+      setPracticeSerial((current) => current + 1);
+      setPhrase("");
+      setScores({});
+      setScoreFreshness("current");
+      setCelebrating(false);
+      setStatus("Fresh target.");
+      phraseInputRef.current?.focus();
+      return;
+    }
+
+    if (levelIndex === challenge.length - 1) {
+      setComplete(true);
+      setCelebrating(false);
+      setStatus("Tone mastered.");
+      return;
+    }
+
+    setLevelIndex((current) => current + 1);
+    setPointsLeft(30);
+    pointsLeftRef.current = 30;
+    setPhrase("");
+    setScores({});
+    setScoreFreshness("current");
+    setCelebrating(false);
+    setStatus("New target.");
+    phraseInputRef.current?.focus();
+  }, [celebrating, challenge.length, levelIndex, mode]);
+
+  useEffect(() => {
+    const syncInspectorToHash = () => {
+      setApiInspectorOpen(window.location.hash === "#inspect-api");
+    };
+    window.addEventListener("hashchange", syncInspectorToHash);
+    return () => window.removeEventListener("hashchange", syncInspectorToHash);
+  }, []);
+
+  useEffect(() => {
+    if (complete) finishHeadingRef.current?.focus();
+  }, [complete]);
 
   useEffect(() => {
     if (mode !== "challenge" || complete || celebrating) return undefined;
@@ -84,25 +154,67 @@ export default function App({ initialSeed }: AppProps) {
     const timer = window.setTimeout(async () => {
       setLoading(true);
       setStatus("Jev is scoring…");
+      const requestBody = {
+        phrase,
+        dimensions: round.dimensions.map(({ key }) => key),
+      };
+      const requestId = ++apiRequestIdRef.current;
+      setApiLog((current) => [
+        ...current.slice(-(MAX_API_LOG_ENTRIES - 1)),
+        {
+          id: requestId,
+          request: requestBody,
+          status: "pending",
+        },
+      ]);
+      let responseStatus: number | undefined;
 
       try {
         const response = await fetch("/api/score", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            phrase,
-            dimensions: round.dimensions.map(({ key }) => key),
-          }),
+          body: JSON.stringify(requestBody),
           signal: controller.signal,
         });
-        if (!response.ok) throw new Error("score request failed");
-        const body = (await response.json()) as { scores?: ScoreMap };
-        if (controller.signal.aborted) return;
-        if (!body.scores) throw new Error("missing scores");
+        responseStatus = response.status;
+        let body: ScoreResponse;
+        try {
+          body = (await response.json()) as ScoreResponse;
+        } catch {
+          setApiLog((current) =>
+            current.map((entry) =>
+              entry.id === requestId
+                ? {
+                    ...entry,
+                    httpStatus: response.status,
+                    response: { error: "Response was not valid JSON." },
+                    status: "error",
+                  }
+                : entry,
+            ),
+          );
+          throw new Error("invalid JSON response");
+        }
         const hasEveryScore = round.dimensions.every(
-          ({ key }) => typeof body.scores?.[key]?.score === "number",
+          ({ key }) => typeof body?.scores?.[key]?.score === "number",
         );
-        if (!hasEveryScore) throw new Error("missing score");
+        const responseIsValid = Boolean(body?.scores) && hasEveryScore;
+        setApiLog((current) =>
+          current.map((entry) =>
+            entry.id === requestId
+              ? {
+                  ...entry,
+                  httpStatus: response.status,
+                  jevRequest: body?.inspection?.request,
+                  response: body,
+                  status: response.ok && responseIsValid ? "complete" : "error",
+                }
+              : entry,
+          ),
+        );
+        if (!response.ok) throw new Error("score request failed");
+        if (controller.signal.aborted) return;
+        if (!body?.scores || !hasEveryScore) throw new Error("missing score");
 
         setScores(body.scores);
         setScoreFreshness("current");
@@ -115,12 +227,50 @@ export default function App({ initialSeed }: AppProps) {
           return;
         }
 
-        successPointsRef.current = pointsLeftRef.current;
+        if (mode === "challenge") {
+          const nextTotal =
+            totalRef.current + pointsForSuccess(pointsLeftRef.current);
+          totalRef.current = nextTotal;
+          setTotal(nextTotal);
+          if (
+            levelIndex === challenge.length - 1 &&
+            nextTotal > highScoreRef.current
+          ) {
+            highScoreRef.current = nextTotal;
+            setHighScore(nextTotal);
+            window.localStorage.setItem(
+              "mind-your-tone-high-score",
+              String(nextTotal),
+            );
+          }
+        }
+        advancingRef.current = false;
         setCelebrating(true);
         setLoading(false);
         setStatus("Nailed it.");
       } catch {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted) {
+          setApiLog((current) =>
+            current.map((entry) =>
+              entry.id === requestId && entry.status === "pending"
+                ? { ...entry, status: "cancelled" }
+                : entry,
+            ),
+          );
+          return;
+        }
+        setApiLog((current) =>
+          current.map((entry) =>
+            entry.id === requestId && entry.status === "pending"
+              ? {
+                  ...entry,
+                  httpStatus: responseStatus,
+                  response: { error: "Network request failed." },
+                  status: "error",
+                }
+              : entry,
+          ),
+        );
         setStatus("Jev blinked. Keep typing.");
         setLoading(false);
         setScoreFreshness("stale");
@@ -131,53 +281,22 @@ export default function App({ initialSeed }: AppProps) {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [celebrating, complete, phrase, round]);
+  }, [
+    celebrating,
+    challenge.length,
+    complete,
+    levelIndex,
+    mode,
+    phrase,
+    round,
+  ]);
 
   useEffect(() => {
     if (!celebrating) return undefined;
-
-    const timer = window.setTimeout(() => {
-      if (mode === "practice") {
-        setPracticeSerial((current) => current + 1);
-        setPhrase("");
-        setScores({});
-        setScoreFreshness("current");
-        setCelebrating(false);
-        setStatus("Fresh target.");
-        return;
-      }
-
-      const nextTotal =
-        totalRef.current + pointsForSuccess(successPointsRef.current);
-      totalRef.current = nextTotal;
-      setTotal(nextTotal);
-      if (levelIndex === challenge.length - 1) {
-        setComplete(true);
-        setCelebrating(false);
-        setStatus("Tone mastered.");
-        if (nextTotal > highScoreRef.current) {
-          highScoreRef.current = nextTotal;
-          setHighScore(nextTotal);
-          window.localStorage.setItem(
-            "mind-your-tone-high-score",
-            String(nextTotal),
-          );
-        }
-        return;
-      }
-
-      setLevelIndex((current) => current + 1);
-      setPointsLeft(30);
-      pointsLeftRef.current = 30;
-      setPhrase("");
-      setScores({});
-      setScoreFreshness("current");
-      setCelebrating(false);
-      setStatus("New target.");
-    }, SUCCESS_HOLD_MS);
+    const timer = window.setTimeout(advanceFromSuccess, SUCCESS_HOLD_MS);
 
     return () => window.clearTimeout(timer);
-  }, [celebrating, challenge.length, levelIndex, mode]);
+  }, [advanceFromSuccess, celebrating]);
 
   const resetRoundView = () => {
     setPhrase("");
@@ -185,6 +304,7 @@ export default function App({ initialSeed }: AppProps) {
     setLoading(false);
     setScoreFreshness("current");
     setCelebrating(false);
+    advancingRef.current = false;
   };
 
   const updatePhrase = (nextPhrase: string) => {
@@ -236,6 +356,18 @@ export default function App({ initialSeed }: AppProps) {
     setComplete(false);
     setStatus("Type to score. Hit every target.");
     resetRoundView();
+  };
+
+  const closeApiInspector = () => {
+    setApiInspectorOpen(false);
+    if (window.location.hash === "#inspect-api") {
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}`,
+      );
+    }
+    inspectApiLinkRef.current?.focus();
   };
 
   return (
@@ -305,7 +437,9 @@ export default function App({ initialSeed }: AppProps) {
         {complete ? (
           <div className="finish-screen">
             <p className="eyebrow">run complete</p>
-            <h1 id="game-heading">{total} points</h1>
+            <h1 id="game-heading" ref={finishHeadingRef} tabIndex={-1}>
+              {total} points
+            </h1>
             <p>You shaped every tone without breaking a sentence.</p>
             <div className="finish-actions">
               <button
@@ -328,7 +462,10 @@ export default function App({ initialSeed }: AppProps) {
           <>
             <div className="intro-copy">
               <p className="eyebrow">type → scored live → adjust</p>
-              <h1 id="game-heading">Write a line. Hit every target.</h1>
+              <h1 id="game-heading">
+                <span>Write a line.</span>
+                <span>Hit every target.</span>
+              </h1>
             </div>
 
             <div
@@ -354,6 +491,7 @@ export default function App({ initialSeed }: AppProps) {
               </div>
               <textarea
                 id="phrase"
+                ref={phraseInputRef}
                 value={phrase}
                 maxLength={120}
                 rows={3}
@@ -373,6 +511,17 @@ export default function App({ initialSeed }: AppProps) {
                   {loading ? "scoring…" : celebrating ? "hit!" : "live"}
                 </span>
               </div>
+              {celebrating && (
+                <button
+                  className="advance-button"
+                  type="button"
+                  onClick={advanceFromSuccess}
+                  aria-label={`${advanceLabel}; advances automatically in 3 seconds`}
+                >
+                  <span>{advanceLabel}</span>
+                  <small>auto in 3s</small>
+                </button>
+              )}
             </div>
           </>
         )}
@@ -380,17 +529,35 @@ export default function App({ initialSeed }: AppProps) {
 
       <footer className="site-footer">
         <span>scored only by TypeSafe Jev</span>
-        {mode === "challenge" && !complete && (
-          <button
-            type="button"
+        <div className="footer-actions">
+          <a
+            href="#inspect-api"
             className="text-button"
-            disabled={celebrating}
-            onClick={copyChallenge}
+            ref={inspectApiLinkRef}
+            onClick={() => setApiInspectorOpen(true)}
           >
-            share seed {seed}
-          </button>
-        )}
+            inspect API
+          </a>
+          {mode === "challenge" && !complete && (
+            <button
+              type="button"
+              className="text-button"
+              disabled={celebrating}
+              onClick={copyChallenge}
+            >
+              share seed {seed}
+            </button>
+          )}
+        </div>
       </footer>
+
+      {apiInspectorOpen && (
+        <ApiInspector
+          entries={apiLog}
+          onClear={() => setApiLog([])}
+          onClose={closeApiInspector}
+        />
+      )}
     </main>
   );
 }

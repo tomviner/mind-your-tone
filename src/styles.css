@@ -182,6 +182,11 @@ a:focus-visible {
   letter-spacing: -0.07em;
 }
 
+.intro-copy h1 span {
+  display: block;
+  white-space: nowrap;
+}
+
 .meters {
   display: grid;
   gap: 18px;
@@ -456,6 +461,56 @@ textarea::placeholder {
   color: var(--blue);
 }
 
+.advance-button {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  overflow: hidden;
+  margin-top: 16px;
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  background: white;
+  box-shadow: 3px 3px 0 var(--ink);
+  color: var(--ink);
+  padding: 13px 15px;
+  font-weight: 900;
+  text-transform: lowercase;
+}
+
+.advance-button::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  transform: scaleX(0);
+  transform-origin: left;
+  background: var(--yellow);
+  animation: advance-fill 3s linear forwards;
+}
+
+.advance-button small {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.advance-button:hover {
+  box-shadow: 2px 2px 0 var(--ink);
+  transform: translate(1px, 1px);
+}
+
+@keyframes advance-fill {
+  to {
+    transform: scaleX(1);
+  }
+}
+
 .primary-button {
   border: 2px solid var(--ink);
   border-radius: 999px;
@@ -529,6 +584,108 @@ textarea::placeholder {
   font-size: 0.72rem;
 }
 
+.footer-actions,
+.api-inspector-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+}
+
+.api-inspector {
+  margin-top: 18px;
+  border: 2px solid var(--ink);
+  border-radius: 16px;
+  background: var(--paper);
+  box-shadow: 5px 5px 0 var(--ink);
+  padding: clamp(18px, 4vw, 28px);
+}
+
+.api-inspector-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.api-inspector-heading h2 {
+  margin: 4px 0 0;
+  font-size: clamp(1.65rem, 6vw, 2.4rem);
+  letter-spacing: -0.055em;
+}
+
+.api-inspector-note,
+.api-empty p {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.api-log {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.api-entry {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+}
+
+.api-entry summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  cursor: pointer;
+  padding: 12px 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.api-status {
+  color: var(--green);
+}
+
+.api-status.is-error,
+.api-status.is-cancelled {
+  color: var(--red);
+}
+
+.api-status.is-pending {
+  color: var(--blue);
+}
+
+.api-entry-body {
+  border-top: 1px solid var(--line);
+  padding: 4px 14px 14px;
+}
+
+.api-entry-body h3 {
+  margin: 14px 0 6px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.api-inspector pre {
+  max-width: 100%;
+  overflow: auto;
+  margin: 0;
+  border-radius: 7px;
+  background: #292821;
+  color: #fffaf0;
+  padding: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .finish-screen {
   min-height: 420px;
   display: grid;
@@ -577,6 +734,21 @@ textarea::placeholder {
     width: 100%;
   }
 
+  .intro-copy h1 {
+    font-size: clamp(1.9rem, 9.5vw, 3rem);
+  }
+
+  .site-footer,
+  .api-inspector-heading {
+    flex-direction: column;
+  }
+
+  .footer-actions,
+  .api-inspector-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
   .status {
     min-height: 1.5rem;
   }
@@ -590,6 +762,10 @@ textarea::placeholder {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+  }
+
+  .advance-button::before {
+    transform: scaleX(1);
   }
 }
 

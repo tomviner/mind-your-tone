@@ -116,6 +116,38 @@ class ScoreRequestTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(calls), 1)
         self.assertEqual(calls[0][0], "typesafe/jev")
         self.assertEqual(calls[0][1]["state"], "Send the signed copy by noon.")
+        self.assertEqual(
+            payload["inspection"],
+            {
+                "request": {
+                    "model": "typesafe/jev",
+                    "input": {
+                        "state": "Send the signed copy by noon.",
+                        "questions": {
+                            "urgency": {
+                                "type": "score",
+                                "instructions": DIMENSIONS["urgency"]["instructions"],
+                                "criteria": DIMENSIONS["urgency"]["criteria"],
+                            },
+                            "specificity": {
+                                "type": "score",
+                                "instructions": DIMENSIONS["specificity"][
+                                    "instructions"
+                                ],
+                                "criteria": DIMENSIONS["specificity"]["criteria"],
+                            },
+                        },
+                    },
+                },
+                "response": {
+                    "model": "jev-1.13.0",
+                    "scores": {
+                        "urgency": {"score": 3.25, "confidence": 0.91},
+                        "specificity": {"score": 1.4, "confidence": 0.78},
+                    },
+                },
+            },
+        )
 
     async def test_rejects_cross_origin_and_scheme_mismatch_before_inference(self):
         calls = []
@@ -183,7 +215,28 @@ class ScoreRequestTests(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(status, 502)
-        self.assertEqual(payload, {"error": "Jev could not score that phrase"})
+        self.assertEqual(payload["error"], "Jev could not score that phrase")
+        self.assertEqual(
+            payload["inspection"],
+            {
+                "request": {
+                    "model": "typesafe/jev",
+                    "input": {
+                        "state": "Hello",
+                        "questions": {
+                            "friendliness": {
+                                "type": "score",
+                                "instructions": DIMENSIONS["friendliness"][
+                                    "instructions"
+                                ],
+                                "criteria": DIMENSIONS["friendliness"]["criteria"],
+                            }
+                        },
+                    },
+                },
+                "response": None,
+            },
+        )
         self.assertIn('"event": "jev_inference_failed"', logs.output[0])
 
     async def test_maps_invalid_jev_responses_to_a_fixed_error(self):
@@ -199,7 +252,9 @@ class ScoreRequestTests(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(status, 502)
-        self.assertEqual(payload, {"error": "Jev could not score that phrase"})
+        self.assertEqual(payload["error"], "Jev could not score that phrase")
+        self.assertEqual(payload["inspection"]["response"], None)
+        self.assertEqual(payload["inspection"]["request"]["input"]["state"], "Hello")
         self.assertIn('"event": "jev_response_invalid"', logs.output[0])
 
 

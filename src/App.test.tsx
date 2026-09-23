@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import App from "./App";
@@ -35,14 +35,15 @@ const finishDebounce = async () => {
   });
 };
 
-const finishFlourish = () => {
-  act(() => vi.advanceTimersByTime(900));
+const finishSuccessDelay = () => {
+  act(() => vi.advanceTimersByTime(3_000));
 };
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.useRealTimers();
   window.localStorage.clear();
+  window.history.replaceState(null, "", "/");
 });
 
 describe("live challenge play", () => {
@@ -115,6 +116,13 @@ describe("live challenge play", () => {
     expect(meters).toHaveAttribute("aria-busy", "false");
     expect(meters).not.toHaveClass("has-stale-scores");
     expect(scoredMeter).toHaveAttribute("aria-valuenow", String(secondScore));
+
+    fireEvent.click(screen.getByRole("link", { name: /inspect api/i }));
+    expect(
+      within(
+        screen.getByRole("region", { name: /api inspector/i }),
+      ).getAllByText("POST /api/score"),
+    ).toHaveLength(2);
   });
 
   test("keeps an unsuccessful refresh visibly and accessibly stale", async () => {
@@ -143,9 +151,14 @@ describe("live challenge play", () => {
       "aria-valuetext",
       expect.stringContaining("Update failed"),
     );
+
+    fireEvent.click(screen.getByRole("link", { name: /inspect api/i }));
+    const inspector = screen.getByRole("region", { name: /api inspector/i });
+    expect(within(inspector).getByText("502")).toBeInTheDocument();
+    expect(within(inspector).getByText(/unavailable/)).toBeInTheDocument();
   });
 
-  test("awards the live clock and advances when live scores hit every target", async () => {
+  test("shows the earned score and auto-advances after a three-second success pause", async () => {
     vi.useFakeTimers();
     const round = createChallenge(SEED)[0];
     vi.stubGlobal(
@@ -156,14 +169,23 @@ describe("live challenge play", () => {
 
     typePhrase();
     await finishDebounce();
-    finishFlourish();
+
+    expect(screen.getByText("level 1 / 10")).toBeInTheDocument();
+    expect(screen.getByText("30 total")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /next level/i }),
+    ).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(2_999));
+    expect(screen.getByText("level 1 / 10")).toBeInTheDocument();
+
+    act(() => vi.advanceTimersByTime(1));
 
     expect(screen.getByText("level 2 / 10")).toBeInTheDocument();
     expect(screen.getByText("30 total")).toBeInTheDocument();
     expect(screen.getByText("New target.")).toBeInTheDocument();
   });
 
-  test("holds the winning score on screen for a success flourish before advancing", async () => {
+  test("keeps the winning work visible and lets the player advance early", async () => {
     vi.useFakeTimers();
     const round = createChallenge(SEED)[0];
     const winningScore =
@@ -185,7 +207,7 @@ describe("live challenge play", () => {
       expect.stringContaining("Inside target"),
     );
 
-    act(() => vi.advanceTimersByTime(899));
+    act(() => vi.advanceTimersByTime(1_500));
     expect(screen.getByText("level 1 / 10")).toBeInTheDocument();
     expect(screen.getByText(winningScore.toFixed(1))).toBeInTheDocument();
     expect(screen.getByText("Nailed it.")).toBeInTheDocument();
@@ -195,8 +217,11 @@ describe("live challenge play", () => {
       screen.getByRole("button", { name: `share seed ${SEED}` }),
     ).toBeDisabled();
 
-    act(() => vi.advanceTimersByTime(1));
+    const advanceButton = screen.getByRole("button", { name: /next level/i });
+    advanceButton.focus();
+    fireEvent.click(advanceButton);
     expect(screen.getByText("level 2 / 10")).toBeInTheDocument();
+    expect(screen.getByLabelText("Your phrase")).toHaveFocus();
   });
 
   test("freezes the winning view and controls during a practice flourish", async () => {
@@ -218,7 +243,10 @@ describe("live challenge play", () => {
 
     expect(picker).toBeDisabled();
     expect(screen.getByText("Nailed it.")).toBeInTheDocument();
-    act(() => vi.advanceTimersByTime(899));
+    expect(
+      screen.getByRole("button", { name: /next target/i }),
+    ).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(2_999));
     expect(screen.getByText("Nailed it.")).toBeInTheDocument();
     expect(screen.getByRole("meter")).toHaveAttribute(
       "aria-valuetext",
@@ -248,16 +276,19 @@ describe("live challenge play", () => {
       expect(screen.getByText(`level ${index + 1} / 10`)).toBeInTheDocument();
       expect(screen.getByText("Nailed it.")).toBeInTheDocument();
 
-      if (index < challenge.length - 1) finishFlourish();
+      if (index < challenge.length - 1) finishSuccessDelay();
     }
 
-    act(() => vi.advanceTimersByTime(899));
+    expect(
+      screen.getByRole("button", { name: /see results/i }),
+    ).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(2_999));
     expect(screen.getByText("level 10 / 10")).toBeInTheDocument();
     expect(screen.getByText("Nailed it.")).toBeInTheDocument();
 
     act(() => vi.advanceTimersByTime(1));
     expect(screen.getByText("run complete")).toBeInTheDocument();
-    expect(screen.getByText("300 points")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "300 points" })).toHaveFocus();
   });
 
   test("cancels a pending evaluation when the phrase changes again", async () => {
@@ -279,6 +310,111 @@ describe("live challenge play", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1]?.body as string).phrase).toBe(
       "Second draft",
     );
+  });
+
+  test("opens a session inspector that shows the real API and Jev exchange", async () => {
+    vi.useFakeTimers();
+    const round = createChallenge(SEED)[0];
+    const response = {
+      ...scoreBody(round, false),
+      inspection: {
+        request: {
+          model: "typesafe/jev",
+          input: {
+            state: "A traceable phrase",
+            questions: {
+              [round.dimensions[0].key]: {
+                type: "score",
+                instructions: "Judge the requested tone.",
+                criteria: { 0: "low", 4: "high" },
+              },
+            },
+          },
+        },
+        response: scoreBody(round, false),
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json(response)),
+    );
+    render(<App initialSeed={SEED} />);
+
+    typePhrase("A traceable phrase");
+    await finishDebounce();
+    fireEvent.click(screen.getByRole("link", { name: /inspect api/i }));
+
+    const inspector = screen.getByRole("region", { name: /api inspector/i });
+    expect(within(inspector).getByText("POST /api/score")).toBeInTheDocument();
+    expect(within(inspector).getByText("Jev request")).toBeInTheDocument();
+    expect(within(inspector).getByText("API response")).toBeInTheDocument();
+    expect(
+      within(inspector).getAllByText(/A traceable phrase/),
+    ).not.toHaveLength(0);
+    expect(within(inspector).getAllByText(/typesafe\/jev/)).not.toHaveLength(0);
+    expect(within(inspector).getAllByText(/jev-1\.13\.0/)).not.toHaveLength(0);
+    expect(
+      within(inspector).getByText(/Browser session only/),
+    ).toBeInTheDocument();
+  });
+
+  test("records network and malformed-response failures in the inspector", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockRejectedValueOnce(new TypeError("private browser detail"))
+        .mockResolvedValueOnce(new Response("not json", { status: 502 })),
+    );
+    render(<App initialSeed={SEED} />);
+
+    typePhrase("First request");
+    await finishDebounce();
+    typePhrase("Second request");
+    await finishDebounce();
+    fireEvent.click(screen.getByRole("link", { name: /inspect api/i }));
+
+    const inspector = screen.getByRole("region", { name: /api inspector/i });
+    expect(within(inspector).getByText("502")).toBeInTheDocument();
+    expect(
+      within(inspector).getByText(/Response was not valid JSON/),
+    ).toBeInTheDocument();
+    expect(
+      within(inspector).getByText(/Network request failed/),
+    ).toBeInTheDocument();
+    expect(within(inspector).queryByText(/private browser detail/)).toBeNull();
+  });
+
+  test("keeps the linked inspector in sync with the URL and restores focus", () => {
+    render(<App initialSeed={SEED} />);
+
+    act(() => {
+      window.location.hash = "#inspect-api";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    const link = screen.getByRole("link", { name: /inspect api/i });
+    expect(
+      screen.getByRole("region", { name: /api inspector/i }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "close" }));
+    expect(screen.queryByRole("region", { name: /api inspector/i })).toBeNull();
+    expect(window.location.hash).toBe("");
+    expect(link).toHaveFocus();
+
+    act(() => {
+      window.location.hash = "#inspect-api";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    expect(
+      screen.getByRole("region", { name: /api inspector/i }),
+    ).toBeInTheDocument();
+    act(() => {
+      window.history.replaceState(null, "", "/");
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    expect(screen.queryByRole("region", { name: /api inspector/i })).toBeNull();
   });
 
   test("clears an in-flight evaluation when the textarea is emptied", async () => {
@@ -325,7 +461,7 @@ describe("live challenge play", () => {
     expect(screen.getByText("0 points left")).toBeInTheDocument();
     typePhrase();
     await finishDebounce();
-    finishFlourish();
+    finishSuccessDelay();
 
     expect(screen.getByText("level 2 / 10")).toBeInTheDocument();
     expect(screen.getByText("0 total")).toBeInTheDocument();

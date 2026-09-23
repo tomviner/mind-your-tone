@@ -25,6 +25,13 @@ def build_jev_input(phrase: str, keys: list[str]) -> dict[str, Any]:
     }
 
 
+def inspection(jev_input: dict[str, Any], response: Any) -> dict[str, Any]:
+    return {
+        "request": {"model": "typesafe/jev", "input": jev_input},
+        "response": response,
+    }
+
+
 def _is_number(value: Any) -> bool:
     return (
         not isinstance(value, bool)
@@ -110,8 +117,9 @@ async def score_request(
 
     phrase = body["phrase"]
     dimensions = body["dimensions"]
+    jev_input = build_jev_input(phrase, dimensions)
     try:
-        result = await run_ai("typesafe/jev", build_jev_input(phrase, dimensions))
+        result = await run_ai("typesafe/jev", jev_input)
     except Exception as error:
         logging.error(
             json.dumps(
@@ -121,10 +129,17 @@ async def score_request(
                 }
             )
         )
-        return {"error": "Jev could not score that phrase"}, 502
+        return {
+            "error": "Jev could not score that phrase",
+            "inspection": inspection(jev_input, None),
+        }, 502
 
     try:
-        return scores_from_jev_response(result, dimensions), 200
+        scores = scores_from_jev_response(result, dimensions)
+        return {
+            **scores,
+            "inspection": inspection(jev_input, scores),
+        }, 200
     except ValueError as error:
         logging.error(
             json.dumps(
@@ -134,4 +149,7 @@ async def score_request(
                 }
             )
         )
-        return {"error": "Jev could not score that phrase"}, 502
+        return {
+            "error": "Jev could not score that phrase",
+            "inspection": inspection(jev_input, None),
+        }, 502
