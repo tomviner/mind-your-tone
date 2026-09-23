@@ -31,10 +31,16 @@ interface AppProps {
 const SUCCESS_HOLD_MS = 5_000;
 const SUCCESS_TYPING_GRACE_MS = 1_000;
 const MAX_API_LOG_ENTRIES = 20;
+const MAX_PHRASE_LENGTH = 120;
 
 const seedFromLocation = (): string => {
   const supplied = new URLSearchParams(window.location.search).get("seed");
   return supplied?.trim() || crypto.randomUUID().slice(0, 8);
+};
+
+const phraseFromLocation = (): string => {
+  const supplied = new URLSearchParams(window.location.search).get("text");
+  return supplied?.slice(0, MAX_PHRASE_LENGTH) ?? "";
 };
 
 const savedHighScore = (): number => {
@@ -50,7 +56,7 @@ export default function App({ initialSeed }: AppProps) {
   const [levelIndex, setLevelIndex] = useState(0);
   const [practiceKey, setPracticeKey] = useState<DimensionKey>("urgency");
   const [practiceSerial, setPracticeSerial] = useState(0);
-  const [phrase, setPhrase] = useState("");
+  const [phrase, setPhrase] = useState(phraseFromLocation);
   const [scores, setScores] = useState<ScoreMap>({});
   const [pointsLeft, setPointsLeft] = useState(30);
   const [total, setTotal] = useState(0);
@@ -87,6 +93,17 @@ export default function App({ initialSeed }: AppProps) {
     [practiceKey, practiceSerial, seed],
   );
   const round = mode === "challenge" ? challenge[levelIndex] : practiceRound;
+  const siblingUrl = useMemo(() => {
+    const url = new URL("https://tone-jev.tomv.uk/");
+    if (phrase) url.searchParams.set("text", phrase);
+    const { key, target } = round.dimensions[0];
+    url.searchParams.set("dimension", key);
+    url.searchParams.set(
+      "target",
+      String(Math.round(((target.min + target.max) / 8) * 100)),
+    );
+    return url.toString();
+  }, [phrase, round]);
   const shareUrl = useMemo(() => {
     const url = new URL(window.location.href);
     url.search = "";
@@ -185,7 +202,7 @@ export default function App({ initialSeed }: AppProps) {
   }, [celebrating, complete, levelIndex, mode]);
 
   useEffect(() => {
-    if (complete || !phrase.trim() || phrase.length > 120) {
+    if (complete || !phrase.trim() || phrase.length > MAX_PHRASE_LENGTH) {
       return undefined;
     }
 
@@ -438,11 +455,8 @@ export default function App({ initialSeed }: AppProps) {
           </a>
           <span className="model-credit">you write · Jev scores</span>
         </div>
-        <a
-          className="text-button sibling-link"
-          href="https://tone-jev.tomv.uk/"
-        >
-          tone your mind <span aria-hidden="true">↗</span>
+        <a className="text-button sibling-link" href={siblingUrl}>
+          tone your mind <span aria-hidden="true">→</span>
         </a>
         <nav aria-label="Game mode" className="mode-switch">
           <button
@@ -532,6 +546,9 @@ export default function App({ initialSeed }: AppProps) {
               </h1>
             </div>
 
+            {Object.keys(scores).length > 0 && (
+              <p className="eyebrow attempt-owner">your attempt</p>
+            )}
             <div
               className={`meters${celebrating ? " is-celebrating" : ""}${scoreFreshness !== "current" ? " has-stale-scores" : ""}`}
               aria-label="Tone targets"
@@ -551,13 +568,15 @@ export default function App({ initialSeed }: AppProps) {
             <div className="phrase-form">
               <div className="input-heading">
                 <label htmlFor="phrase">Your phrase</label>
-                <span>{phrase.length}/120</span>
+                <span>
+                  {phrase.length}/{MAX_PHRASE_LENGTH}
+                </span>
               </div>
               <textarea
                 id="phrase"
                 ref={phraseInputRef}
                 value={phrase}
-                maxLength={120}
+                maxLength={MAX_PHRASE_LENGTH}
                 rows={3}
                 autoFocus
                 placeholder="Try: Could you send that over today?"
@@ -573,7 +592,7 @@ export default function App({ initialSeed }: AppProps) {
                       ? null
                       : celebrating || status.startsWith("Nailed")
                         ? "✓"
-                        : "↗"}
+                        : "→"}
                   </span>
                   {status}
                 </p>
@@ -607,7 +626,7 @@ export default function App({ initialSeed }: AppProps) {
       </section>
 
       <footer className="site-footer">
-        <span>scored only by TypeSafe Jev</span>
+        <span>you write · TypeSafe Jev scores · nothing is saved</span>
         <div className="footer-actions">
           <a
             href="#inspect-api"

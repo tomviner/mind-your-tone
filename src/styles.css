@@ -166,6 +166,10 @@ a:focus-visible {
   text-transform: uppercase;
 }
 
+.attempt-owner {
+  margin-bottom: 8px;
+}
+
 .scoreboard {
   display: flex;
   flex-wrap: wrap;

@@ -78,13 +78,39 @@ describe("live challenge play", () => {
     expect(link).toHaveAttribute("rel", "noreferrer");
   });
 
-  test("names the alternate game in the header link", () => {
+  test("hands the current phrase and target to the alternate game", () => {
+    window.history.replaceState(null, "", "/?text=Handed%20back%20phrase");
     render(<App initialSeed={SEED} />);
 
     const link = within(screen.getByRole("banner")).getByRole("link", {
       name: "tone your mind",
     });
-    expect(link).toHaveAttribute("href", "https://tone-jev.tomv.uk/");
+    const url = new URL(link.getAttribute("href")!);
+    const { key, target } = createChallenge(SEED)[0].dimensions[0];
+
+    expect(screen.getByLabelText("Your phrase")).toHaveValue(
+      "Handed back phrase",
+    );
+    expect(link).toHaveTextContent("tone your mind →");
+    expect(url.origin).toBe("https://tone-jev.tomv.uk");
+    expect(url.searchParams.get("text")).toBe("Handed back phrase");
+    expect(url.searchParams.get("dimension")).toBe(key);
+    expect(url.searchParams.get("target")).toBe(
+      String(Math.round(((target.min + target.max) / 8) * 100)),
+    );
+  });
+
+  test("truncates an oversized handed-off phrase to the input contract", () => {
+    const supplied = "x".repeat(140);
+    window.history.replaceState(
+      null,
+      "",
+      `/?text=${encodeURIComponent(supplied)}`,
+    );
+
+    render(<App initialSeed={SEED} />);
+
+    expect(screen.getByLabelText("Your phrase")).toHaveValue("x".repeat(120));
   });
 
   test("credits Jev's role beside the game name", () => {
@@ -112,6 +138,22 @@ describe("live challenge play", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(screen.getByText("Closer.")).toBeInTheDocument();
     expect(screen.getByText("level 1 / 10")).toBeInTheDocument();
+  });
+
+  test("labels a scored phrase as the player's attempt", async () => {
+    vi.useFakeTimers();
+    const round = createChallenge(SEED)[0];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json(scoreBody(round, false))),
+    );
+    render(<App initialSeed={SEED} />);
+
+    expect(screen.queryByText("your attempt")).not.toBeInTheDocument();
+    typePhrase();
+    await finishDebounce();
+
+    expect(screen.getByText("your attempt")).toBeInTheDocument();
   });
 
   test("marks the previous score stale while an edited phrase is rescored", async () => {
