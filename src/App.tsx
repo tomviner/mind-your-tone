@@ -439,7 +439,7 @@ export default function App({ initialSeed }: AppProps) {
           className="text-button sibling-link"
           href="https://tone-jev.tomv.uk/"
         >
-          let the machine play <span aria-hidden="true">↗</span>
+          tone your mind <span aria-hidden="true">↗</span>
         </a>
         <nav aria-label="Game mode" className="mode-switch">
           <button

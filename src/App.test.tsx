@@ -78,11 +78,11 @@ describe("live challenge play", () => {
     expect(link).toHaveAttribute("rel", "noreferrer");
   });
 
-  test("links the header to the alternate game", () => {
+  test("names the alternate game in the header link", () => {
     render(<App initialSeed={SEED} />);
 
     const link = within(screen.getByRole("banner")).getByRole("link", {
-      name: "let the machine play",
+      name: "tone your mind",
     });
     expect(link).toHaveAttribute("href", "https://tone-jev.tomv.uk/");
   });
