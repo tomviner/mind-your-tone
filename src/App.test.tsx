@@ -553,7 +553,11 @@ describe("live challenge play", () => {
 
     typePhrase("First draft");
     await finishDebounce();
-    expect(screen.getByText("Jev is scoring…")).toBeInTheDocument();
+    const scoringStatus = screen.getByText("Jev is scoring…");
+    expect(scoringStatus.querySelector(".status-spinner")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
 
     typePhrase("");
     expect(fetchMock.mock.calls[0][1]?.signal?.aborted).toBe(true);

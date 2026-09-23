@@ -444,6 +444,23 @@ textarea::placeholder {
   font-size: 1.1rem;
 }
 
+.status .status-spinner {
+  width: 0.8em;
+  height: 0.8em;
+  flex: 0 0 auto;
+  border: 0.12em solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  font-size: inherit;
+  animation: status-spin 700ms linear infinite;
+}
+
+@keyframes status-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .live-badge {
   display: inline-flex;
   align-items: center;

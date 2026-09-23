@@ -562,8 +562,15 @@ export default function App({ initialSeed }: AppProps) {
               />
               <div className="form-footer">
                 <p className="status" role="status">
-                  <span aria-hidden="true">
-                    {celebrating || status.startsWith("Nailed") ? "✓" : "↗"}
+                  <span
+                    className={loading ? "status-spinner" : undefined}
+                    aria-hidden="true"
+                  >
+                    {loading
+                      ? null
+                      : celebrating || status.startsWith("Nailed")
+                        ? "✓"
+                        : "↗"}
                   </span>
                   {status}
                 </p>
