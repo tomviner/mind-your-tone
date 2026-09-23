@@ -9,10 +9,14 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "test": "vitest run",
+    "test": "npm run test:js && npm run test:py",
+    "test:js": "vitest run",
+    "test:py": "uv run python -m unittest discover -s tests -p 'test_*.py'",
     "typecheck": "tsc -b --pretty false",
-    "format": "prettier --write \"{src,functions}/**/*.{ts,tsx,css}\" \"*.{json,ts,html,md}\"",
-    "format:check": "prettier --check \"{src,functions}/**/*.{ts,tsx,css}\" \"*.{json,ts,html,md}\""
+    "format": "npm run format:js && uv run ruff format worker tests",
+    "format:js": "prettier --write \"src/**/*.{ts,tsx,css}\" \"worker/**/*.json\" \"*.{json,ts,html,md}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"worker/**/*.json\" \"*.{json,ts,html,md}\" && uv run ruff format --check worker tests",
+    "lint:py": "uv run ruff check worker tests"
   },
   "dependencies": {
     "react": "^18.3.1",

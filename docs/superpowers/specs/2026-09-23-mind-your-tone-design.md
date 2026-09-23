@@ -52,16 +52,18 @@ semantic forms and CSS meters; target bands and needles are not separate chart
 series, so each meter uses a single accent plus explicit text, position, and
 shape rather than color alone.
 
-A Cloudflare Pages Function at `POST /api/score` accepts `{ phrase, dimensions }`.
+A Python Cloudflare Worker at `POST /api/score` accepts `{ phrase, dimensions }`.
 It validates same-origin requests, phrase length, dimension keys, and duplicate
-keys. It makes exactly one `env.AI.run('typesafe/jev', ...)` call containing the
-phrase as the sole state and one Score question per active dimension. The
-function returns only numeric scores, confidences, and the Jev model identifier.
+keys. It makes exactly one `self.env.AI.run('typesafe/jev', ...)` call containing
+the phrase as the sole state and one Score question per active dimension. The
+Worker returns only numeric scores, confidences, and the Jev model identifier.
 It generates no prose.
 
-Static files and the function deploy to Cloudflare Pages with a Workers AI
-binding. No application secrets are required or stored. GitHub Actions uses
-repository secrets only for deployment credentials.
+The same Worker deployment serves the compiled React app through a Static Assets
+binding. The Worker runs on Cloudflare's Python runtime and uses the Workers AI
+binding, with no application secrets required or stored. The tone rubric data is
+shared by Python and TypeScript from one JSON file. GitHub Actions uses repository
+secrets only for deployment credentials.
 
 ## Interface
 
@@ -94,7 +96,7 @@ not logged or persisted. Only the high score is saved locally.
 Unit tests cover deterministic levels, target-width progression, dimension
 counts, zero-point completion, Jev request construction, response parsing, and
 input rejection. Component tests cover debounce/cancellation/success flows and the
-non-blocking zero clock. The production build, Pages configuration, and public
+non-blocking zero clock. The production build, Worker configuration, and public
 routes are checked. Finally, several real phrases are played through the live
 site to confirm Jev scores move plausibly, early levels are attainable, zero
 points still permits completion, and the custom hostname serves the deployed

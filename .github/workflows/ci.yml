@@ -16,8 +16,14 @@ jobs:
           node-version: "22"
           cache: npm
 
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
       - run: npm ci
+      - run: uv sync --locked
       - run: npm run format:check
+      - run: npm run lint:py
       - run: npm test
       - run: npm run typecheck
       - run: npm run build

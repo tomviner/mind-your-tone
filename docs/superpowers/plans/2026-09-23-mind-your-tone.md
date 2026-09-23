@@ -4,9 +4,14 @@
 
 **Goal:** Ship a public, mobile-first Jev phrase-target game at `jev-tone.tomv.uk`.
 
-**Architecture:** A Vite/React client owns deterministic level generation and the game state machine. A same-origin Cloudflare Pages Function validates at most three dimensions and sends the phrase as the sole state in one `typesafe/jev` inference request containing parallel Score questions.
+**Architecture:** A Vite/React client owns deterministic level generation and the game state machine. A same-origin Python Cloudflare Worker validates at most three dimensions and sends the phrase as the sole state in one `typesafe/jev` inference request containing parallel Score questions. The Worker serves the compiled client with Static Assets.
 
-**Tech Stack:** TypeScript, React 18, Vite, Vitest, Testing Library, Cloudflare Pages Functions, Workers AI, GitHub Actions
+**Tech Stack:** Python 3.14 on Cloudflare Workers, TypeScript, React 18, Vite, Vitest, `unittest`, Workers Static Assets, Workers AI, GitHub Actions
+
+**Migration note:** The original Pages Function implementation was replaced by a
+first-class Python Worker after Python Workers reached general availability. The
+Python scoring boundary lives in `worker/`, its tests live in `tests/`, and
+`worker/dimensions.json` is shared with the browser.
 
 **Spec:** `docs/superpowers/specs/2026-09-23-mind-your-tone-design.md`
 
@@ -26,7 +31,7 @@
 - A malformed or cross-origin API request must be rejected before invoking AI.
 - Jev response envelopes and direct responses must both parse, while missing or out-of-range scores fail safely.
 - A counter at zero must still permit evaluation and successful advancement with zero awarded points.
-- Rapid double submission must result in one in-flight request and one score award.
+- Rapid retyping must cancel stale work and result in at most one score award.
 - Narrow mobile screens and reduced-motion users must retain legible targets, exact values, and usable controls.
 
 ---
@@ -54,19 +59,21 @@
 ### Task 2: Jev scoring boundary
 
 **Files:**
-- Create: `functions/api/score.ts`
-- Test: `functions/api/score.test.ts`
+- Create: `worker/main.py`
+- Create: `worker/scoring.py`
+- Create: `worker/dimensions.json`
+- Test: `tests/test_scoring.py`
 - Create: `wrangler.jsonc`
 
 **Interfaces:**
-- Consumes: dimension keys and rubric definitions from `src/dimensions.ts`.
-- Produces: `buildJevInput(phrase, keys)`, `scoresFromJevResponse(value, keys)`, and `onRequestPost(context)`.
+- Consumes: rubric definitions from `worker/dimensions.json`, shared with the browser.
+- Produces: `build_jev_input(phrase, keys)`, `scores_from_jev_response(value, keys)`, and the Python Worker `Default.fetch(request)` entry point.
 
 - [ ] Write failing tests proving one input contains the exact phrase as `state`, parallel Score questions, no prose question, envelope parsing, bounds checking, origin checking, length checking, duplicate rejection, and exactly one AI call.
-- [ ] Run `npm test -- functions/api/score.test.ts` and confirm failure because the endpoint does not exist.
+- [ ] Run `python3 -m unittest discover -s tests` and confirm failure because the scoring module does not exist.
 - [ ] Implement the bounded request parser, one binding call to `typesafe/jev`, numeric response mapping, `no-store` JSON responses, and structured error logging without phrases.
-- [ ] Generate Cloudflare binding types from `wrangler.jsonc` and use them rather than handwritten platform environment types.
-- [ ] Run the endpoint tests and TypeScript compiler.
+- [ ] Configure the native Workers AI and Static Assets bindings in `wrangler.jsonc` without application credentials.
+- [ ] Run the Python endpoint tests, linter, Worker dry-run, and TypeScript compiler.
 - [ ] Commit the independently tested scoring boundary.
 
 ### Task 3: Playable interface
@@ -103,7 +110,7 @@
 
 **Interfaces:**
 - Consumes: the verified build and Cloudflare/GitHub authenticated accounts.
-- Produces: public repository, continuous deployment, Workers AI binding, and `https://jev-tone.tomv.uk`.
+- Produces: public repository, verified manual deployment workflow, Workers AI binding, and `https://jev-tone.tomv.uk`.
 
 - [ ] Add public documentation, secret exclusions, CI, and a deployment workflow whose credentials exist only as GitHub secrets.
 - [ ] Scan the tracked tree for credentials and forbidden private-infrastructure terms; fail if any are present.
