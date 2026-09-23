@@ -143,6 +143,30 @@ export default function App({ initialSeed }: AppProps) {
   }, [complete]);
 
   useEffect(() => {
+    if (!celebrating) return undefined;
+
+    const advanceOnEnter = (event: KeyboardEvent) => {
+      if (
+        event.key !== "Enter" ||
+        event.defaultPrevented ||
+        event.repeat ||
+        event.isComposing ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey
+      ) {
+        return;
+      }
+      event.preventDefault();
+      advanceFromSuccess();
+    };
+
+    window.addEventListener("keydown", advanceOnEnter);
+    return () => window.removeEventListener("keydown", advanceOnEnter);
+  }, [advanceFromSuccess, celebrating]);
+
+  useEffect(() => {
     if (mode !== "challenge" || complete || celebrating) return undefined;
     const timer = window.setInterval(() => {
       setPointsLeft((current) => Math.max(0, current - 1));
@@ -508,9 +532,10 @@ export default function App({ initialSeed }: AppProps) {
                   type="button"
                   onClick={advanceFromSuccess}
                   aria-label={`${advanceLabel}; advances automatically in 5 seconds`}
+                  aria-keyshortcuts="Enter"
                 >
                   <span>{advanceLabel}</span>
-                  <small>auto in 5s</small>
+                  <small>enter · auto in 5s</small>
                 </button>
               )}
             </div>

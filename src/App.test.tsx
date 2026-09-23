@@ -186,7 +186,7 @@ describe("live challenge play", () => {
         name: /next level; advances automatically in 5 seconds/i,
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText("auto in 5s")).toBeInTheDocument();
+    expect(screen.getByText("enter · auto in 5s")).toBeInTheDocument();
     act(() => vi.advanceTimersByTime(4_999));
     expect(screen.getByText("level 1 / 10")).toBeInTheDocument();
 
@@ -234,6 +234,31 @@ describe("live challenge play", () => {
     fireEvent.click(advanceButton);
     expect(screen.getByText("level 2 / 10")).toBeInTheDocument();
     expect(screen.getByLabelText("Your phrase")).toHaveFocus();
+  });
+
+  test("advances a winning round when Enter is pressed", async () => {
+    vi.useFakeTimers();
+    const round = createChallenge(SEED)[0];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json(scoreBody(round, true))),
+    );
+    render(<App initialSeed={SEED} />);
+
+    typePhrase();
+    await finishDebounce();
+
+    expect(screen.getByRole("button", { name: /next level/i })).toHaveAttribute(
+      "aria-keyshortcuts",
+      "Enter",
+    );
+    fireEvent.keyDown(screen.getByLabelText("Your phrase"), { key: "Enter" });
+
+    expect(screen.getByText("level 2 / 10")).toBeInTheDocument();
+    expect(screen.getByLabelText("Your phrase")).toHaveFocus();
+
+    fireEvent.keyDown(screen.getByLabelText("Your phrase"), { key: "Enter" });
+    expect(screen.getByText("level 2 / 10")).toBeInTheDocument();
   });
 
   test("freezes the winning view and controls during a practice flourish", async () => {
