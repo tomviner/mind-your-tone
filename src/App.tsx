@@ -464,7 +464,7 @@ export default function App({ initialSeed }: AppProps) {
               <p className="eyebrow">type → scored live → adjust</p>
               <h1 id="game-heading">
                 <span>Write a line.</span>
-                <span>Hit every target.</span>
+                <span>Hit the right tone.</span>
               </h1>
             </div>
 
