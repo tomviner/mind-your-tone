@@ -83,6 +83,13 @@ export default function App({ initialSeed }: AppProps) {
     [practiceKey, practiceSerial, seed],
   );
   const round = mode === "challenge" ? challenge[levelIndex] : practiceRound;
+  const shareUrl = useMemo(() => {
+    const url = new URL(window.location.href);
+    url.search = "";
+    url.hash = "";
+    url.searchParams.set("seed", seed);
+    return url.toString();
+  }, [seed]);
   const advanceLabel =
     mode === "practice"
       ? "next target"
@@ -333,18 +340,6 @@ export default function App({ initialSeed }: AppProps) {
     resetRoundView();
   };
 
-  const copyChallenge = async () => {
-    const url = new URL(window.location.href);
-    url.search = "";
-    url.searchParams.set("seed", seed);
-    try {
-      await navigator.clipboard.writeText(url.toString());
-      setStatus("Challenge link copied.");
-    } catch {
-      setStatus(`Seed: ${seed}`);
-    }
-  };
-
   const newChallenge = () => {
     const nextSeed = crypto.randomUUID().slice(0, 8);
     setSeed(nextSeed);
@@ -449,13 +444,9 @@ export default function App({ initialSeed }: AppProps) {
               >
                 new challenge
               </button>
-              <button
-                className="text-button"
-                type="button"
-                onClick={copyChallenge}
-              >
-                share this seed
-              </button>
+              <a className="text-button" href={shareUrl}>
+                share this challenge
+              </a>
             </div>
           </div>
         ) : (
@@ -539,14 +530,9 @@ export default function App({ initialSeed }: AppProps) {
             inspect API
           </a>
           {mode === "challenge" && !complete && (
-            <button
-              type="button"
-              className="text-button"
-              disabled={celebrating}
-              onClick={copyChallenge}
-            >
-              share seed {seed}
-            </button>
+            <a className="text-button" href={shareUrl}>
+              share challenge
+            </a>
           )}
         </div>
       </footer>

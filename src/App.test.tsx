@@ -57,6 +57,15 @@ describe("live challenge play", () => {
     ).not.toBeInTheDocument();
   });
 
+  test("exposes the challenge seed as a real shareable link", () => {
+    render(<App initialSeed={SEED} />);
+
+    const link = screen.getByRole("link", { name: "share challenge" });
+    const url = new URL(link.getAttribute("href")!, window.location.href);
+    expect(url.searchParams.get("seed")).toBe(SEED);
+    expect(url.hash).toBe("");
+  });
+
   test("scores automatically after typing pauses and keeps a missed level", async () => {
     vi.useFakeTimers();
     const round = createChallenge(SEED)[0];
@@ -217,8 +226,8 @@ describe("live challenge play", () => {
     expect(screen.getByText("30 points left")).toBeInTheDocument();
     expect(screen.getByLabelText("Your phrase")).toHaveAttribute("readonly");
     expect(
-      screen.getByRole("button", { name: `share seed ${SEED}` }),
-    ).toBeDisabled();
+      screen.getByRole("link", { name: "share challenge" }),
+    ).toBeInTheDocument();
 
     const advanceButton = screen.getByRole("button", { name: /next level/i });
     advanceButton.focus();
