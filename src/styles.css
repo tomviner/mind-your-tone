@@ -492,6 +492,10 @@ textarea::placeholder {
   animation: advance-fill 5s linear forwards;
 }
 
+.advance-button.is-paused::before {
+  animation-play-state: paused;
+}
+
 .advance-button small {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.7rem;

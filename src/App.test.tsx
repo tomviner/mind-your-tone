@@ -236,7 +236,9 @@ describe("live challenge play", () => {
     expect(screen.getByText(winningScore.toFixed(1))).toBeInTheDocument();
     expect(screen.getByText("Nailed it.")).toBeInTheDocument();
     expect(screen.getByText("30 points left")).toBeInTheDocument();
-    expect(screen.getByLabelText("Your phrase")).toHaveAttribute("readonly");
+    expect(screen.getByLabelText("Your phrase")).not.toHaveAttribute(
+      "readonly",
+    );
     expect(
       screen.getByRole("link", { name: "share challenge" }),
     ).toBeInTheDocument();
@@ -246,6 +248,67 @@ describe("live challenge play", () => {
     fireEvent.click(advanceButton);
     expect(screen.getByText("level 2 / 10")).toBeInTheDocument();
     expect(screen.getByLabelText("Your phrase")).toHaveFocus();
+  });
+
+  test("keeps auto-advance running for typing during the one-second grace period", async () => {
+    vi.useFakeTimers();
+    const round = createChallenge(SEED)[0];
+    const fetchMock = vi.fn(async () => Response.json(scoreBody(round, true)));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App initialSeed={SEED} />);
+
+    typePhrase("Half a sentence");
+    await finishDebounce();
+    act(() => vi.advanceTimersByTime(500));
+    typePhrase("Half a sentence that I was still finishing");
+
+    await act(async () => {
+      vi.advanceTimersByTime(4_499);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(screen.getByText("level 1 / 10")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    act(() => vi.advanceTimersByTime(1));
+    expect(screen.getByText("level 2 / 10")).toBeInTheDocument();
+    expect(screen.getByText("30 total")).toBeInTheDocument();
+  });
+
+  test("pauses auto-advance for later edits while keeping the level secured", async () => {
+    vi.useFakeTimers();
+    const round = createChallenge(SEED)[0];
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(scoreBody(round, true)))
+      .mockResolvedValueOnce(Response.json(scoreBody(round, false)));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App initialSeed={SEED} />);
+
+    typePhrase("An accidental early hit");
+    await finishDebounce();
+    act(() => vi.advanceTimersByTime(1_001));
+    typePhrase("An accidental early hit, now with my intended ending");
+
+    expect(screen.getByText("paused · enter to continue")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: /automatic advance paused; press Enter to continue/i,
+      }),
+    ).toBeInTheDocument();
+
+    await finishDebounce();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(
+      screen.getByText(/Level secured.*version misses/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText("30 total")).toBeInTheDocument();
+
+    act(() => vi.advanceTimersByTime(10_000));
+    expect(screen.getByText("level 1 / 10")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /next level/i }));
+    expect(screen.getByText("level 2 / 10")).toBeInTheDocument();
   });
 
   test("advances a winning round when Enter is pressed", async () => {

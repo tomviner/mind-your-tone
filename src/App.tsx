@@ -29,6 +29,7 @@ interface AppProps {
 }
 
 const SUCCESS_HOLD_MS = 5_000;
+const SUCCESS_TYPING_GRACE_MS = 1_000;
 const MAX_API_LOG_ENTRIES = 20;
 
 const seedFromLocation = (): string => {
@@ -59,6 +60,7 @@ export default function App({ initialSeed }: AppProps) {
   const [scoreFreshness, setScoreFreshness] =
     useState<ScoreFreshness>("current");
   const [celebrating, setCelebrating] = useState(false);
+  const [successPaused, setSuccessPaused] = useState(false);
   const [complete, setComplete] = useState(false);
   const [apiInspectorOpen, setApiInspectorOpen] = useState(
     () => window.location.hash === "#inspect-api",
@@ -69,6 +71,8 @@ export default function App({ initialSeed }: AppProps) {
   const highScoreRef = useRef(highScore);
   const apiRequestIdRef = useRef(0);
   const advancingRef = useRef(false);
+  const celebratingRef = useRef(false);
+  const successStartedAtRef = useRef(0);
   const phraseInputRef = useRef<HTMLTextAreaElement>(null);
   const finishHeadingRef = useRef<HTMLHeadingElement>(null);
   const inspectApiLinkRef = useRef<HTMLAnchorElement>(null);
@@ -106,7 +110,9 @@ export default function App({ initialSeed }: AppProps) {
       setPhrase("");
       setScores({});
       setScoreFreshness("current");
+      celebratingRef.current = false;
       setCelebrating(false);
+      setSuccessPaused(false);
       setStatus("Fresh target.");
       phraseInputRef.current?.focus();
       return;
@@ -114,7 +120,9 @@ export default function App({ initialSeed }: AppProps) {
 
     if (levelIndex === challenge.length - 1) {
       setComplete(true);
+      celebratingRef.current = false;
       setCelebrating(false);
+      setSuccessPaused(false);
       setStatus("Tone mastered.");
       return;
     }
@@ -125,7 +133,9 @@ export default function App({ initialSeed }: AppProps) {
     setPhrase("");
     setScores({});
     setScoreFreshness("current");
+    celebratingRef.current = false;
     setCelebrating(false);
+    setSuccessPaused(false);
     setStatus("New target.");
     phraseInputRef.current?.focus();
   }, [celebrating, challenge.length, levelIndex, mode]);
@@ -175,16 +185,25 @@ export default function App({ initialSeed }: AppProps) {
   }, [celebrating, complete, levelIndex, mode]);
 
   useEffect(() => {
-    if (celebrating || complete || !phrase.trim() || phrase.length > 120) {
+    if (complete || !phrase.trim() || phrase.length > 120) {
       return undefined;
     }
 
+    const levelSecured = celebratingRef.current;
     const controller = new AbortController();
     setLoading(false);
-    setStatus("Waiting for a pause…");
+    setStatus(
+      levelSecured
+        ? "Level secured. Waiting to check this version…"
+        : "Waiting for a pause…",
+    );
     const timer = window.setTimeout(async () => {
       setLoading(true);
-      setStatus("Jev is scoring…");
+      setStatus(
+        levelSecured
+          ? "Level secured. Checking this version…"
+          : "Jev is scoring…",
+      );
       const requestBody = {
         phrase,
         dimensions: round.dimensions.map(({ key }) => key),
@@ -252,6 +271,15 @@ export default function App({ initialSeed }: AppProps) {
         const hit = round.dimensions.every(({ key, target }) =>
           isInsideTarget(body.scores?.[key]?.score ?? Number.NaN, target),
         );
+        if (levelSecured) {
+          setStatus(
+            hit
+              ? "Level secured. This version still hits."
+              : "Level secured. This version misses — keep experimenting.",
+          );
+          setLoading(false);
+          return;
+        }
         if (!hit) {
           setStatus("Closer.");
           setLoading(false);
@@ -276,6 +304,9 @@ export default function App({ initialSeed }: AppProps) {
           }
         }
         advancingRef.current = false;
+        successStartedAtRef.current = Date.now();
+        setSuccessPaused(false);
+        celebratingRef.current = true;
         setCelebrating(true);
         setLoading(false);
         setStatus("Nailed it.");
@@ -302,7 +333,11 @@ export default function App({ initialSeed }: AppProps) {
               : entry,
           ),
         );
-        setStatus("Jev blinked. Keep typing.");
+        setStatus(
+          levelSecured
+            ? "Level secured. Jev blinked on this version."
+            : "Jev blinked. Keep typing.",
+        );
         setLoading(false);
         setScoreFreshness("stale");
       }
@@ -312,40 +347,45 @@ export default function App({ initialSeed }: AppProps) {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [
-    celebrating,
-    challenge.length,
-    complete,
-    levelIndex,
-    mode,
-    phrase,
-    round,
-  ]);
+  }, [challenge.length, complete, levelIndex, mode, phrase, round]);
 
   useEffect(() => {
-    if (!celebrating) return undefined;
+    if (!celebrating || successPaused) return undefined;
     const timer = window.setTimeout(advanceFromSuccess, SUCCESS_HOLD_MS);
 
     return () => window.clearTimeout(timer);
-  }, [advanceFromSuccess, celebrating]);
+  }, [advanceFromSuccess, celebrating, successPaused]);
 
   const resetRoundView = () => {
     setPhrase("");
     setScores({});
     setLoading(false);
     setScoreFreshness("current");
+    celebratingRef.current = false;
     setCelebrating(false);
+    setSuccessPaused(false);
+    successStartedAtRef.current = 0;
     advancingRef.current = false;
   };
 
   const updatePhrase = (nextPhrase: string) => {
-    if (celebrating) return;
     setPhrase(nextPhrase);
+    if (
+      celebrating &&
+      !successPaused &&
+      Date.now() - successStartedAtRef.current >= SUCCESS_TYPING_GRACE_MS
+    ) {
+      setSuccessPaused(true);
+    }
     if (!nextPhrase.trim()) {
       setScores({});
       setLoading(false);
       setScoreFreshness("current");
-      setStatus("Type to score. Hit every target.");
+      setStatus(
+        celebrating
+          ? "Level secured. Type another version or continue."
+          : "Type to score. Hit every target.",
+      );
       return;
     }
     setScoreFreshness("pending");
@@ -511,31 +551,38 @@ export default function App({ initialSeed }: AppProps) {
                 maxLength={120}
                 rows={3}
                 autoFocus
-                readOnly={celebrating}
                 placeholder="Try: Could you send that over today?"
                 onChange={(event) => updatePhrase(event.target.value)}
               />
               <div className="form-footer">
                 <p className="status" role="status">
                   <span aria-hidden="true">
-                    {status.startsWith("Nailed") ? "✓" : "↗"}
+                    {celebrating || status.startsWith("Nailed") ? "✓" : "↗"}
                   </span>
                   {status}
                 </p>
                 <span className={`live-badge${loading ? " is-scoring" : ""}`}>
-                  {loading ? "scoring…" : celebrating ? "hit!" : "live"}
+                  {loading ? "scoring…" : celebrating ? "secured" : "live"}
                 </span>
               </div>
               {celebrating && (
                 <button
-                  className="advance-button"
+                  className={`advance-button${successPaused ? " is-paused" : ""}`}
                   type="button"
                   onClick={advanceFromSuccess}
-                  aria-label={`${advanceLabel}; advances automatically in 5 seconds`}
+                  aria-label={
+                    successPaused
+                      ? `${advanceLabel}; automatic advance paused; press Enter to continue`
+                      : `${advanceLabel}; advances automatically in 5 seconds`
+                  }
                   aria-keyshortcuts="Enter"
                 >
                   <span>{advanceLabel}</span>
-                  <small>enter · auto in 5s</small>
+                  <small>
+                    {successPaused
+                      ? "paused · enter to continue"
+                      : "enter · auto in 5s"}
+                  </small>
                 </button>
               )}
             </div>
