@@ -36,7 +36,7 @@ const finishDebounce = async () => {
 };
 
 const finishSuccessDelay = () => {
-  act(() => vi.advanceTimersByTime(3_000));
+  act(() => vi.advanceTimersByTime(5_000));
 };
 
 afterEach(() => {
@@ -158,7 +158,7 @@ describe("live challenge play", () => {
     expect(within(inspector).getByText(/unavailable/)).toBeInTheDocument();
   });
 
-  test("shows the earned score and auto-advances after a three-second success pause", async () => {
+  test("shows the earned score and auto-advances after a five-second success pause", async () => {
     vi.useFakeTimers();
     const round = createChallenge(SEED)[0];
     vi.stubGlobal(
@@ -173,9 +173,12 @@ describe("live challenge play", () => {
     expect(screen.getByText("level 1 / 10")).toBeInTheDocument();
     expect(screen.getByText("30 total")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /next level/i }),
+      screen.getByRole("button", {
+        name: /next level; advances automatically in 5 seconds/i,
+      }),
     ).toBeInTheDocument();
-    act(() => vi.advanceTimersByTime(2_999));
+    expect(screen.getByText("auto in 5s")).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(4_999));
     expect(screen.getByText("level 1 / 10")).toBeInTheDocument();
 
     act(() => vi.advanceTimersByTime(1));
@@ -246,7 +249,7 @@ describe("live challenge play", () => {
     expect(
       screen.getByRole("button", { name: /next target/i }),
     ).toBeInTheDocument();
-    act(() => vi.advanceTimersByTime(2_999));
+    act(() => vi.advanceTimersByTime(4_999));
     expect(screen.getByText("Nailed it.")).toBeInTheDocument();
     expect(screen.getByRole("meter")).toHaveAttribute(
       "aria-valuetext",
@@ -282,7 +285,7 @@ describe("live challenge play", () => {
     expect(
       screen.getByRole("button", { name: /see results/i }),
     ).toBeInTheDocument();
-    act(() => vi.advanceTimersByTime(2_999));
+    act(() => vi.advanceTimersByTime(4_999));
     expect(screen.getByText("level 10 / 10")).toBeInTheDocument();
     expect(screen.getByText("Nailed it.")).toBeInTheDocument();
 

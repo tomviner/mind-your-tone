@@ -28,7 +28,7 @@ interface AppProps {
   initialSeed?: string;
 }
 
-const SUCCESS_HOLD_MS = 3_000;
+const SUCCESS_HOLD_MS = 5_000;
 const MAX_API_LOG_ENTRIES = 20;
 
 const seedFromLocation = (): string => {
@@ -516,10 +516,10 @@ export default function App({ initialSeed }: AppProps) {
                   className="advance-button"
                   type="button"
                   onClick={advanceFromSuccess}
-                  aria-label={`${advanceLabel}; advances automatically in 3 seconds`}
+                  aria-label={`${advanceLabel}; advances automatically in 5 seconds`}
                 >
                   <span>{advanceLabel}</span>
-                  <small>auto in 3s</small>
+                  <small>auto in 5s</small>
                 </button>
               )}
             </div>

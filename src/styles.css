@@ -489,7 +489,7 @@ textarea::placeholder {
   transform: scaleX(0);
   transform-origin: left;
   background: var(--yellow);
-  animation: advance-fill 3s linear forwards;
+  animation: advance-fill 5s linear forwards;
 }
 
 .advance-button small {
