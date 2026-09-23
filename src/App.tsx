@@ -554,6 +554,14 @@ export default function App({ initialSeed }: AppProps) {
           >
             inspect API
           </a>
+          <a
+            className="text-button"
+            href="https://github.com/tomviner/mind-your-tone"
+            target="_blank"
+            rel="noreferrer"
+          >
+            GitHub repo
+          </a>
           {mode === "challenge" && !complete && (
             <a className="text-button" href={shareUrl}>
               share challenge

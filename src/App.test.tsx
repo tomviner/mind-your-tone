@@ -66,6 +66,18 @@ describe("live challenge play", () => {
     expect(url.hash).toBe("");
   });
 
+  test("links the footer to the public source repository", () => {
+    render(<App initialSeed={SEED} />);
+
+    const link = screen.getByRole("link", { name: "GitHub repo" });
+    expect(link).toHaveAttribute(
+      "href",
+      "https://github.com/tomviner/mind-your-tone",
+    );
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noreferrer");
+  });
+
   test("scores automatically after typing pauses and keeps a missed level", async () => {
     vi.useFakeTimers();
     const round = createChallenge(SEED)[0];
