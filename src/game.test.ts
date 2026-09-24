@@ -11,7 +11,7 @@ import {
 } from "./game";
 
 describe("challenge generation", () => {
-  test("offers the complete twenty-dimension tone pool", () => {
+  test("offers the complete twenty-one-dimension tone pool", () => {
     expect([...DIMENSION_KEYS].sort()).toEqual(
       [
         "urgency",
@@ -34,8 +34,11 @@ describe("challenge generation", () => {
         "cooperation",
         "violence",
         "whimsy",
+        "sarcasm",
       ].sort(),
     );
+    expect(DIMENSIONS.sarcasm.low).toBe("Literal");
+    expect(DIMENSIONS.sarcasm.high).toBe("Sarcastic");
     expect(DIMENSIONS.sincerity.low).toBe("Insincere");
     expect(DIMENSIONS.diplomacy.low).toBe("Tactless");
     expect(DIMENSIONS.cooperation.low).toBe("Uncooperative");
